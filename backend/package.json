@@ -1,0 +1,17 @@
+{
+  "name": "s-care-backend",
+  "version": "1.0.0",
+  "description": "S-Care IoT Elderly Care Backend Service",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "pg": "^8.16.0"
+  }
+}

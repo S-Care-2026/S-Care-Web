@@ -141,3 +141,8 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Antigravity CLI (AGY) Cache & Logs
+.antigravity/
+.agy/
+*.agy.log
