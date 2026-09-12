@@ -1,0 +1,46 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Public" },
+    { "id": "page-2", "name": "App (after login)" },
+    { "id": "page-3", "name": "System" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html",       "page": "page-1", "x": 0,    "y": 0, "w": 1440, "h": 2000, "title": "Home (public)" },
+    { "file": "About.dc.html",      "page": "page-1", "x": 1560, "y": 0, "w": 1440, "h": 2000, "title": "About (public)" },
+    { "file": "Login.dc.html",      "page": "page-1", "x": 3160, "y": 0, "w": 1440, "h": 900,  "title": "Login" },
+
+    { "file": "Dashboard.dc.html",  "page": "page-2", "x": 0,    "y": 0, "w": 1440, "h": 1040, "title": "Dashboard" },
+    { "file": "Alerts.dc.html",     "page": "page-2", "x": 1560, "y": 0, "w": 1440, "h": 900,  "title": "Alerts" },
+    { "file": "Vitals.dc.html",     "page": "page-2", "x": 3160, "y": 0, "w": 1440, "h": 980,  "title": "Device detail" },
+
+    { "file": "Tokens.dc.html",     "page": "page-3", "x": 0,    "y": 0, "w": 900,  "h": 1900, "title": "Palette & tokens" },
+    { "file": "Components.dc.html","page": "page-3", "x": 1020, "y": 0, "w": 900,  "h": 1150, "title": "Web components" }
+  ],
+  "annotations": [
+    {
+      "id": "public-note",
+      "page": "page-1",
+      "x": 0,
+      "y": -150,
+      "w": 620,
+      "text": "Public surface — the two things mobile doesn't have. Home and About are reachable with no account; Login is the only door into the app. No public sign-up: accounts are provisioned by a facility administrator."
+    },
+    {
+      "id": "app-note",
+      "page": "page-2",
+      "x": 0,
+      "y": -150,
+      "w": 620,
+      "text": "Behind Login. Same Vital Green flat theme as the mobile app (dark ground, solid fills, 3:1 borders), laid out for a browser: a persistent sidebar replaces mobile's bottom tab bar, and every screen is a full desktop width instead of a 390px column."
+    },
+    {
+      "id": "system-note",
+      "page": "page-3",
+      "x": 0,
+      "y": -150,
+      "w": 620,
+      "text": "Tokens are copied verbatim from S-Care Mobile's .design/Tokens.dc.html — one palette, checked once against WCAG 2.1, shared by both apps. Components documents only what's new for the browser."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

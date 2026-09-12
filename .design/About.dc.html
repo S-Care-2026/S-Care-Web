@@ -1,0 +1,211 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
+  <style>
+    :root{
+      --canvas:#060E09; --card:#111A14; --elev:#1C251F;
+      --border:#5B675E; --hair:#38433B;
+      --t1:#EEF6F0; --t2:#C9D2CB; --t3:#A2ACA5;
+      --green:#25D271; --onGreen:#04140B; --greenSurf:#1A3522;
+      --red:#FB5A50; --onRed:#1A0605;
+      --amber:#FDBA33; --blue:#44ACFB; --slate:#8A968D; --rose:#FC7899; --cyan:#27CEDE;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--canvas);color:var(--t1);
+      font-family:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:var(--green);text-decoration:none} a:hover{color:#4FE08C}
+    .page{width:1440px;display:flex;flex-direction:column;background:var(--canvas)}
+
+    .nav{height:72px;flex:none;display:flex;align-items:center;gap:8px;padding:0 64px;
+      background:var(--card);border-bottom:1px solid var(--border)}
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{width:36px;height:36px;border-radius:8px;background:var(--green);flex:none;
+      display:flex;align-items:center;justify-content:center}
+    .brand b{font-size:18px;font-weight:800;letter-spacing:-.4px}
+    .navlinks{display:flex;gap:30px;flex:1;padding-left:40px}
+    .navlinks a{font-size:14px;font-weight:700;color:var(--t2)}
+    .navlinks a.on{color:var(--t1)}
+    .btn{display:flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 20px;
+      border-radius:8px;font-size:14px;font-weight:700;white-space:nowrap}
+    .btn-fill{background:var(--green);color:var(--onGreen)}
+    .btn-out{border:1.5px solid var(--green);color:var(--green)}
+    .btn-lg{height:48px;padding:0 26px;font-size:15px}
+
+    section{padding:0 64px}
+    .eyebrow{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:4px;
+      background:var(--greenSurf);color:var(--green);font-size:11px;font-weight:800;letter-spacing:1px;
+      text-transform:uppercase;width:fit-content}
+
+    .header{padding:76px 64px 56px;display:flex;flex-direction:column;gap:20px;max-width:820px}
+    .header h1{margin:0;font-size:46px;font-weight:800;letter-spacing:-1.3px;line-height:1.1}
+    .header p{margin:0;font-size:16px;line-height:1.65;color:var(--t2)}
+
+    .mission{display:flex;gap:56px;padding-bottom:72px;align-items:flex-start}
+    .mission .col{flex:1;display:flex;flex-direction:column;gap:14px}
+    .mission h2{margin:0;font-size:22px;font-weight:800;letter-spacing:-.5px}
+    .mission p{margin:0;font-size:14px;line-height:1.7;color:var(--t2)}
+
+    .sechd{display:flex;flex-direction:column;gap:10px;padding-bottom:36px}
+    .sechd h2{margin:0;font-size:28px;font-weight:800;letter-spacing:-.7px}
+    .sechd p{margin:0;font-size:14px;color:var(--t2);max-width:560px;line-height:1.6}
+
+    .arch{padding:28px;border-radius:12px;background:var(--card);border:1px solid var(--border);
+      display:flex;flex-direction:column;gap:22px;margin-bottom:72px}
+    .arow{display:flex;align-items:stretch;gap:0}
+    .anode{flex:1;padding:18px;border-radius:8px;background:var(--elev);border:1px solid var(--hair);
+      display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+    .anode.warn{border-color:var(--red)}
+    .anode .ic{width:36px;height:36px;border-radius:8px;background:var(--card);border:1px solid var(--border);
+      color:var(--green);display:flex;align-items:center;justify-content:center}
+    .anode b{font-size:13px;font-weight:700}
+    .anode span{font-size:11px;line-height:1.5;color:var(--t3)}
+    .aarrow{flex:none;width:40px;display:flex;align-items:center;justify-content:center;color:var(--t3)}
+    .fanout{display:flex;flex-direction:column;align-items:center;gap:0;flex:1}
+    .fanrow{display:flex;gap:10px;width:100%}
+    .note-line{padding-top:2px;font-size:12px;color:var(--t3);line-height:1.6;border-top:1px solid var(--hair)}
+    .note-line b{color:var(--t2)}
+
+    .values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding-bottom:72px}
+    .val-card{padding:22px;border-radius:8px;background:var(--card);border:1px solid var(--border);
+      display:flex;flex-direction:column;gap:12px}
+    .val-card .ic{width:38px;height:38px;border-radius:8px;background:var(--greenSurf);color:var(--green);
+      display:flex;align-items:center;justify-content:center}
+    .val-card b{font-size:14px;font-weight:700}
+    .val-card p{margin:0;font-size:13px;line-height:1.55;color:var(--t2)}
+
+    .ctaband{margin:0 64px 88px;padding:44px 52px;border-radius:12px;background:var(--greenSurf);
+      border:1px solid var(--green);display:flex;align-items:center;justify-content:space-between;gap:24px}
+    .ctaband h3{margin:0;font-size:24px;font-weight:800;letter-spacing:-.5px}
+    .ctaband p{margin:6px 0 0;font-size:13px;color:var(--t2)}
+
+    footer{padding:36px 64px 40px;border-top:1px solid var(--border);font-size:12px;color:var(--t3)}
+  </style>
+</helmet>
+
+<div class="page">
+  <div class="nav">
+    <div class="brand">
+      <div class="logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#04140B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+      </div>
+      <b>S-Care</b>
+    </div>
+    <div class="navlinks">
+      <a href="#">Home</a>
+      <a href="#" class="on">About</a>
+    </div>
+    <div class="btn btn-out">Login</div>
+  </div>
+
+  <div class="header">
+    <span class="eyebrow">About the project</span>
+    <h1>A second pair of eyes, for the people who watch over everyone else.</h1>
+    <p>S-Care is an end-to-end system built around a smart wearable for elderly people: it continuously monitors heart rate and SpO&#8322;, detects falls from accelerometer data, and puts an SOS button one press away. This site is the caregiver side of it &mdash; the web dashboard and the API behind it.</p>
+  </div>
+
+  <section>
+    <div class="mission">
+      <div class="col">
+        <h2>Why we built it</h2>
+        <p>Falls and silent medical events are the two things caregivers fear most and notice least in time. A wearable that watches vitals continuously &mdash; and calls for help the moment something looks wrong &mdash; closes that gap without asking an elderly person to do anything differently.</p>
+      </div>
+      <div class="col">
+        <h2>What the dashboard does</h2>
+        <p>Every band on the ward reports in, live. Caregivers see a real-time overview of every connected device, a feed of fall and SOS alerts with the context to act on them, and historical vital trends for the checkups that happen after the emergency is over.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechd">
+      <h2>How the system is wired together</h2>
+      <p>The band never talks to the database directly. It publishes over MQTT; a subscriber on the backend does the writing.</p>
+    </div>
+    <div class="arch">
+      <div class="arow">
+        <div class="anode">
+          <div class="ic">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="8" width="10" height="9" rx="2"/><path d="M9 8V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>
+          </div>
+          <b>Wearable band</b>
+          <span>MPU6050 accel/gyro + MAX30102 heart-rate/SpO&#8322; + SOS button, on an ESP32 with Wi-Fi and an M2M SIM.</span>
+        </div>
+        <div class="aarrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+        <div class="anode">
+          <div class="ic">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.6"/><circle cx="4" cy="4" r="1.8"/><circle cx="20" cy="4" r="1.8"/><circle cx="4" cy="20" r="1.8"/><circle cx="20" cy="20" r="1.8"/><path d="M9.9 9.9 5.5 5.5M14.1 9.9l4.4-4.4M9.9 14.1l-4.4 4.4M14.1 14.1l4.4 4.4"/></svg>
+          </div>
+          <b>MQTT broker</b>
+          <span>The band publishes vitals &amp; events to topics; it holds one lightweight persistent connection instead of an HTTP request per reading.</span>
+        </div>
+        <div class="aarrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+        <div class="anode">
+          <div class="ic">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="10" rx="2"/><path d="M8 9V6a4 4 0 1 1 8 0v3"/></svg>
+          </div>
+          <b>Backend subscriber</b>
+          <span>Express service subscribed to the broker's topics, fanning each reading out to storage.</span>
+        </div>
+        <div class="aarrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+        <div class="anode">
+          <div class="ic">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          </div>
+          <b>Web dashboard</b>
+          <span>Caregivers watch readings and alerts land, seconds after the band sends them.</span>
+        </div>
+      </div>
+      <div class="note-line"><b>The SOS button is the one exception:</b> it also fires an SMS straight over the cellular SIM to emergency contacts, independent of Wi-Fi or the broker &mdash; a fallback for when connectivity itself is the problem.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechd">
+      <h2>What we monitor</h2>
+      <p>The same four signals, wherever they came from: the wearable, or a caregiver's own read of the ward.</p>
+    </div>
+    <div class="values">
+      <div class="val-card">
+        <div class="ic">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        </div>
+        <b>Vitals</b>
+        <p>Heart rate and blood oxygen, charted continuously against thresholds tuned for elderly patients.</p>
+      </div>
+      <div class="val-card">
+        <div class="ic">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="1.6"/><path d="m8 21 2-6-3-3 1.5-5 3.5 3 3 1"/><path d="m14 15 2 6"/></svg>
+        </div>
+        <b>Falls</b>
+        <p>Accelerometer impact patterns cross-checked before an alert fires, to keep false alarms rare.</p>
+      </div>
+      <div class="val-card">
+        <div class="ic">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        </div>
+        <b>SOS presses</b>
+        <p>A held button reaches the dashboard and the emergency contact's phone, over two independent paths.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="ctaband">
+    <div>
+      <h3>See it running</h3>
+      <p>Sign in to the caregiver dashboard.</p>
+    </div>
+    <div class="btn btn-fill btn-lg">Login to Dashboard</div>
+  </div>
+
+  <footer>&copy; S-Care &mdash; built with care for elderly care. MIT licensed.</footer>
+</div>
+</x-dc>
+</body>
+</html>

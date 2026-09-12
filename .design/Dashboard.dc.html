@@ -1,0 +1,322 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
+  <style>
+    :root{
+      --canvas:#060E09; --card:#111A14; --elev:#1C251F;
+      --border:#5B675E; --hair:#38433B;
+      --t1:#EEF6F0; --t2:#C9D2CB; --t3:#A2ACA5;
+      --green:#25D271; --onGreen:#04140B; --greenSurf:#1A3522;
+      --red:#FB5A50; --onRed:#1A0605; --redSurf:#4C1D19;
+      --amber:#FDBA33; --onAmber:#1A1203;
+      --blue:#44ACFB; --slate:#8A968D; --rose:#FC7899; --cyan:#27CEDE;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--canvas);color:var(--t1);
+      font-family:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:var(--green);text-decoration:none} a:hover{color:#4FE08C}
+    .shell{width:1440px;height:1040px;display:flex;background:var(--canvas)}
+
+    .sidebar{width:236px;flex:none;background:var(--card);border-right:1px solid var(--border);
+      display:flex;flex-direction:column}
+    .sb-brand{display:flex;align-items:center;gap:10px;padding:18px 18px;border-bottom:1px solid var(--border)}
+    .logo{width:32px;height:32px;border-radius:7px;background:var(--green);flex:none;
+      display:flex;align-items:center;justify-content:center}
+    .sb-brand b{font-size:15px;font-weight:800;letter-spacing:-.3px}
+    .sb-nav{display:flex;flex-direction:column;gap:2px;padding:14px 12px;flex:1}
+    .nitem{display:flex;align-items:center;gap:11px;height:42px;padding:0 12px;border-radius:8px;
+      font-size:13px;font-weight:700;color:var(--t2);position:relative}
+    .nitem.on{background:var(--green);color:var(--onGreen)}
+    .nitem .nb{margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:4px;
+      background:var(--red);color:var(--onRed);font-size:10px;font-weight:800;
+      display:flex;align-items:center;justify-content:center}
+    .sb-foot{padding:14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .av{width:32px;height:32px;border-radius:7px;background:var(--greenSurf);border:1px solid var(--green);
+      color:var(--green);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
+    .who{flex:1;min-width:0;display:flex;flex-direction:column;gap:0}
+    .who b{font-size:12px;font-weight:700;line-height:1.3}
+    .who span{font-size:10px;font-weight:600;color:var(--t3)}
+    .iconbtn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);color:var(--t2);
+      display:flex;align-items:center;justify-content:center;flex:none}
+
+    .main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .topbar{height:64px;flex:none;display:flex;align-items:center;gap:12px;padding:0 28px;
+      border-bottom:1px solid var(--border)}
+    .topbar h1{margin:0;font-size:19px;font-weight:800;letter-spacing:-.4px;flex:1}
+    .live{display:flex;align-items:center;gap:6px;padding:5px 9px;border-radius:4px;
+      background:var(--green);color:var(--onGreen);font-size:10px;font-weight:800;letter-spacing:.4px}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--onGreen);flex:none}
+
+    .body{display:flex;flex-direction:column;gap:16px;padding:24px 28px}
+
+    .banner{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:8px;
+      background:var(--redSurf);border:1px solid var(--red)}
+    .banner .mark{width:36px;height:36px;border-radius:6px;background:var(--red);color:var(--onRed);
+      display:flex;align-items:center;justify-content:center;flex:none}
+    .banner .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .banner .hd{display:flex;align-items:baseline;gap:10px}
+    .banner .hd b{font-size:12px;font-weight:800;letter-spacing:.5px;color:var(--red)}
+    .banner .hd span{font-size:11px;font-weight:600;color:var(--t2)}
+    .banner .who2{font-size:13px;font-weight:700}
+    .banner .note{font-size:12px;color:var(--t2)}
+    .btn{display:flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 16px;
+      border-radius:7px;font-size:12px;font-weight:800;flex:none}
+    .btn-danger{background:var(--red);color:var(--onRed)}
+
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    .kpi{display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:8px;
+      background:var(--card);border:1px solid var(--border)}
+    .kpi .top{display:flex;align-items:center;justify-content:space-between}
+    .kpi .top span{font-size:12px;font-weight:600;color:var(--t2)}
+    .kpi .ic{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none}
+    .kpi .val{font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1}
+    .kpi .sub{font-size:11px;font-weight:500;color:var(--t3)}
+
+    .card{padding:16px;border-radius:8px;background:var(--card);border:1px solid var(--border);
+      display:flex;flex-direction:column;gap:14px}
+    .card .hd{display:flex;align-items:center;justify-content:space-between}
+    .card .hd b{font-size:14px;font-weight:700}
+    .pill{padding:4px 8px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:.3px;
+      display:flex;align-items:center;gap:5px;background:var(--green);color:var(--onGreen)}
+    .vitals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .vital{display:flex;align-items:center;gap:10px;padding:12px;border-radius:6px;background:var(--elev);
+      border-left:3px solid var(--rose)}
+    .vital.o2{border-left-color:var(--cyan)}
+    .vital .ic{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none}
+    .vital .lab{font-size:10px;font-weight:700;letter-spacing:.2px}
+    .vital .num{font-size:17px;font-weight:800;letter-spacing:-.4px;color:var(--t1);line-height:1.2}
+
+    .secthead{display:flex;align-items:center;justify-content:space-between}
+    .secthead h2{margin:0;font-size:15px;font-weight:700}
+    .secthead a{font-size:12px;font-weight:700;display:flex;align-items:center;gap:2px}
+
+    .patients{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .mini{padding:14px;border-radius:8px;background:var(--card);border:1px solid var(--border);
+      display:flex;flex-direction:column;gap:9px}
+    .mini .top{display:flex;align-items:center;justify-content:space-between}
+    .badge{padding:3px 8px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:.3px;
+      display:flex;align-items:center;gap:4px}
+    .b-ok{background:var(--green);color:var(--onGreen)}
+    .b-warn{background:var(--amber);color:var(--onAmber)}
+    .b-crit{background:var(--red);color:var(--onRed)}
+    .b-off{background:var(--slate);color:var(--canvas)}
+    .mini .name{font-size:13px;font-weight:700;line-height:1.2}
+    .mini .room{font-size:11px;font-weight:500;color:var(--t3)}
+    .mini .foot{display:flex;align-items:center;justify-content:space-between;padding-top:9px;
+      border-top:1px solid var(--hair)}
+    .stat{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700}
+    .stat u{font-size:9px;font-weight:600;color:var(--t3);text-decoration:none}
+
+    .actions{display:flex;gap:12px}
+    .abtn{display:flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 22px;
+      border-radius:8px;font-size:13px;font-weight:700}
+    .btn-out{background:transparent;border:1.5px solid var(--green);color:var(--green)}
+  </style>
+</helmet>
+
+<div class="shell">
+  <div class="sidebar">
+    <div class="sb-brand">
+      <div class="logo">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#04140B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+      </div>
+      <b>S-Care</b>
+    </div>
+    <div class="sb-nav">
+      <div class="nitem on">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </div>
+      <div class="nitem">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="13" height="12" rx="2"/><path d="M18 8h4v8h-4z"/></svg>
+        Patients
+      </div>
+      <div class="nitem">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        Alerts<span class="nb">3</span>
+      </div>
+      <div class="nitem">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 4-6 2v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>
+        Map
+      </div>
+      <div class="nitem">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
+        Settings
+      </div>
+    </div>
+    <div class="sb-foot">
+      <div class="av">JC</div>
+      <div class="who"><b>Jordan Cole</b><span>Caregiver &bull; West Wing</span></div>
+      <div class="iconbtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h1>Dashboard</h1>
+      <div class="live"><span class="dot"></span>LIVE</div>
+      <div class="iconbtn" style="width:34px;height:34px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="banner">
+        <div class="mark">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 17h.01"/><path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        </div>
+        <div class="txt">
+          <div class="hd"><b>FALL DETECTED</b><span>2m ago</span></div>
+          <div class="who2">Arthur Pendelton (Room 112 &bull; West Wing)</div>
+          <div class="note">Impact 3.4 g near West Hallway stairs &mdash; no response</div>
+        </div>
+        <div class="btn btn-danger">View Alert</div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi">
+          <div class="top"><span>Active Patients</span>
+            <div class="ic" style="background:#44ACFB">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#04140B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="13" height="12" rx="2"/><path d="M18 8h4v8h-4z"/></svg>
+            </div>
+          </div>
+          <div class="val">6</div><div class="sub">4 currently online</div>
+        </div>
+        <div class="kpi">
+          <div class="top"><span>Active Alerts</span>
+            <div class="ic" style="background:#FB5A50">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A0605" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            </div>
+          </div>
+          <div class="val" style="color:#FB5A50">3</div><div class="sub">2 critical attention</div>
+        </div>
+        <div class="kpi">
+          <div class="top"><span>Normal Status</span>
+            <div class="ic" style="background:#25D271">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#04140B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+          </div>
+          <div class="val" style="color:#25D271">3</div><div class="sub">Stable vital signs</div>
+        </div>
+        <div class="kpi">
+          <div class="top"><span>Anomalies</span>
+            <div class="ic" style="background:#FDBA33">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A1203" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+            </div>
+          </div>
+          <div class="val" style="color:#FDBA33">3</div><div class="sub">Under monitoring</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd"><b>Live Vital Telemetry &mdash; ward average</b>
+          <div class="pill"><span class="dot"></span>LIVE STREAM</div>
+        </div>
+        <div class="vitals">
+          <div class="vital">
+            <div class="ic" style="background:#FC7899">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1A0605" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            </div>
+            <div><div class="lab" style="color:var(--rose)">AVG HEART RATE</div><div class="num">74 <span style="font-size:11px;font-weight:600;color:var(--t3)">bpm</span></div></div>
+          </div>
+          <div class="vital o2">
+            <div class="ic" style="background:#27CEDE">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#04140B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7 6.7 8a7.5 7.5 0 1 0 10.6 0z"/></svg>
+            </div>
+            <div><div class="lab" style="color:var(--cyan)">AVG SpO&#8322;</div><div class="num">96 <span style="font-size:11px;font-weight:600;color:var(--t3)">%</span></div></div>
+          </div>
+          <div class="vital" style="border-left-color:var(--green)">
+            <div class="ic" style="background:#25D271">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#04140B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7 6.7 8a7.5 7.5 0 1 0 10.6 0z"/></svg>
+            </div>
+            <div><div class="lab" style="color:var(--green)">DEVICES ONLINE</div><div class="num">4 <span style="font-size:11px;font-weight:600;color:var(--t3)">/ 6</span></div></div>
+          </div>
+          <div class="vital" style="border-left-color:var(--blue)">
+            <div class="ic" style="background:#44ACFB">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#04140B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M20 10v4"/></svg>
+            </div>
+            <div><div class="lab" style="color:var(--blue)">AVG BATTERY</div><div class="num">68 <span style="font-size:11px;font-weight:600;color:var(--t3)">%</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="secthead"><h2>Monitored Patients</h2><a href="#">View All
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></a>
+        </div>
+        <div class="patients">
+          <div class="mini">
+            <div class="top"><div class="av">E</div>
+              <div class="badge b-ok"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>NORMAL</div>
+            </div>
+            <div><div class="name">Eleanor Vance</div><div class="room">Room 204 &bull; North Wing</div></div>
+            <div class="foot">
+              <div class="stat" style="color:var(--rose)">74<u> bpm</u></div>
+              <div class="stat" style="color:var(--cyan)">98<u> %</u></div>
+              <div class="stat" style="color:var(--green)">88<u> %</u></div>
+            </div>
+          </div>
+          <div class="mini" style="border-color:var(--red)">
+            <div class="top"><div class="av" style="background:var(--redSurf);border-color:var(--red);color:var(--red)">A</div>
+              <div class="badge b-crit"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 17h.01"/></svg>CRITICAL</div>
+            </div>
+            <div><div class="name">Arthur Pendelton</div><div class="room">Room 112 &bull; West Wing</div></div>
+            <div class="foot">
+              <div class="stat" style="color:var(--red)">114<u> bpm</u></div>
+              <div class="stat" style="color:var(--amber)">93<u> %</u></div>
+              <div class="stat" style="color:var(--amber)">42<u> %</u></div>
+            </div>
+          </div>
+          <div class="mini">
+            <div class="top"><div class="av">C</div>
+              <div class="badge b-warn"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/></svg>WARNING</div>
+            </div>
+            <div><div class="name">Clara Zhang</div><div class="room">Room 305 &bull; East Wing</div></div>
+            <div class="foot">
+              <div class="stat" style="color:var(--amber)">108<u> bpm</u></div>
+              <div class="stat" style="color:var(--cyan)">97<u> %</u></div>
+              <div class="stat" style="color:var(--green)">76<u> %</u></div>
+            </div>
+          </div>
+          <div class="mini">
+            <div class="top"><div class="av" style="background:var(--elev);border-color:var(--slate);color:var(--slate)">R</div>
+              <div class="badge b-off"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7 6.7 8a7.5 7.5 0 1 0 10.6 0z"/></svg>OFFLINE</div>
+            </div>
+            <div><div class="name">Robert Kim</div><div class="room">Room 108 &bull; South Wing</div></div>
+            <div class="foot">
+              <div class="stat" style="color:var(--t3)">&mdash;</div>
+              <div class="stat" style="color:var(--t3)">&mdash;</div>
+              <div class="stat" style="color:var(--amber)">12<u> %</u></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="secthead"><h2>Quick Actions</h2></div>
+        <div class="actions">
+          <div class="abtn btn-out">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M3 12h18"/></svg>
+            Pair Device
+          </div>
+          <div class="abtn" style="background:var(--red);color:var(--onRed)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            Simulate Alert
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

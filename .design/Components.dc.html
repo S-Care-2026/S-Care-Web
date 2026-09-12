@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
+  <style>
+    :root{
+      --canvas:#060E09; --card:#111A14; --elev:#1C251F;
+      --border:#5B675E; --hair:#38433B;
+      --t1:#EEF6F0; --t2:#C9D2CB; --t3:#A2ACA5;
+      --green:#25D271; --onGreen:#04140B; --greenSurf:#1A3522;
+      --red:#FB5A50; --onRed:#1A0605;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--canvas);color:var(--t1);
+      font-family:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:var(--green)} a:hover{color:#4FE08C}
+    code{font-family:ui-monospace,Menlo,monospace;font-size:11px}
+    .sheet{width:900px;padding:32px;display:flex;flex-direction:column;gap:28px}
+    h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.8px}
+    .lede{margin:0;font-size:13px;line-height:1.6;color:var(--t2);max-width:660px}
+    h2{margin:0;font-size:12px;font-weight:800;letter-spacing:1.4px;color:var(--t3);text-transform:uppercase}
+    .sec{display:flex;flex-direction:column;gap:14px}
+    .rule{height:1px;background:var(--hair)}
+    .note{font-size:11px;line-height:1.6;color:var(--t2);max-width:660px}
+    .note b{color:var(--t1)}
+
+    .compare{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    .pane{padding:18px;border-radius:8px;background:var(--card);border:1px solid var(--border);
+      display:flex;flex-direction:column;gap:12px}
+    .lab{font-size:10px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--t3)}
+
+    /* mobile bottom nav, shown at native scale for comparison */
+    .phone-nav{width:280px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+      background:var(--elev);border:1px solid var(--border);border-radius:0 0 8px 8px;padding:8px 0 10px}
+    .ptab{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:9px;color:var(--t3)}
+    .ptab.on{color:var(--green);font-weight:700}
+
+    /* web sidebar, shown as a tall strip */
+    .web-sidebar{width:160px;background:var(--elev);border:1px solid var(--border);border-radius:8px;
+      display:flex;flex-direction:column;overflow:hidden}
+    .ws-brand{padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:800}
+    .ws-nav{display:flex;flex-direction:column;gap:2px;padding:8px}
+    .wsitem{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;border-radius:6px;
+      font-size:11px;font-weight:700;color:var(--t2)}
+    .wsitem.on{background:var(--green);color:var(--onGreen)}
+
+    /* public nav */
+    .pubnav{display:flex;align-items:center;gap:20px;padding:12px 18px;border-radius:8px;
+      background:var(--card);border:1px solid var(--border)}
+    .pn-brand{font-size:13px;font-weight:800;flex:none}
+    .pn-links{display:flex;gap:16px;flex:1;font-size:11px;font-weight:700;color:var(--t2)}
+    .pn-links span.on{color:var(--t1)}
+    .pn-btn{padding:6px 12px;border-radius:6px;border:1.5px solid var(--green);color:var(--green);
+      font-size:11px;font-weight:700;flex:none}
+
+    /* login split mini */
+    .login-mini{display:flex;height:150px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+    .lm-brand{width:42%;background:var(--greenSurf);display:flex;align-items:center;justify-content:center}
+    .lm-form{flex:1;background:var(--card);display:flex;flex-direction:column;justify-content:center;
+      gap:8px;padding:0 20px}
+    .lm-input{height:20px;border-radius:5px;background:var(--elev);border:1px solid var(--border)}
+    .lm-btn{height:22px;border-radius:5px;background:var(--green);width:70%}
+  </style>
+</helmet>
+
+<div class="sheet">
+  <div class="sec">
+    <h1>Web components &mdash; new for the browser</h1>
+    <p class="lede">The web dashboard reuses every token, badge, card and button from the mobile app
+      unchanged (see the Tokens sheet). What's genuinely new is navigation shape: a phone has a thumb-reach
+      tab bar and no public marketing surface at all; a browser dashboard has room for a persistent sidebar,
+      and gets a logged-out Home/About the mobile app never needed.</p>
+  </div>
+
+  <div class="sec">
+    <h2>Navigation: bottom tabs &rarr; sidebar</h2>
+    <div class="compare">
+      <div class="pane">
+        <span class="lab">Mobile &mdash; thumb-reach bottom bar</span>
+        <div class="phone-nav">
+          <div class="ptab on">&#9632;<span>Dashboard</span></div>
+          <div class="ptab">&#9632;<span>Patients</span></div>
+          <div class="ptab">&#9632;<span>Alerts</span></div>
+          <div class="ptab">&#9632;<span>Map</span></div>
+        </div>
+      </div>
+      <div class="pane">
+        <span class="lab">Web &mdash; persistent sidebar</span>
+        <div class="web-sidebar">
+          <div class="ws-brand">S-Care</div>
+          <div class="ws-nav">
+            <div class="wsitem on">&#9632; Dashboard</div>
+            <div class="wsitem">&#9632; Patients</div>
+            <div class="wsitem">&#9632; Alerts</div>
+            <div class="wsitem">&#9632; Map</div>
+            <div class="wsitem">&#9632; Settings</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note">Same active-state rule either way: <b>solid green fill</b>, never a 12% tint &mdash; the
+      flat system uses no alpha, on a tab bar or a sidebar. (The 3px rule down the left of a vital tile is a
+      different device entirely: a solid series color saying <i>which</i> vital the tile shows, carried over
+      from mobile unchanged.)</p>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="sec">
+    <h2>Public nav &mdash; logged out, Home &amp; About only</h2>
+    <div class="pubnav">
+      <span class="pn-brand">S-Care</span>
+      <div class="pn-links"><span class="on">Home</span><span>About</span></div>
+      <span class="pn-btn">Login</span>
+    </div>
+    <p class="note">The only two routes reachable without an account. <b>Dashboard, Patients, Alerts and Map
+      exist only behind Login</b> &mdash; there is no logged-out path to them, and no public sign-up: accounts
+      are provisioned by a facility administrator.</p>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="sec">
+    <h2>Login &mdash; the gate between the two</h2>
+    <div class="login-mini">
+      <div class="lm-brand">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#25D271" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+      </div>
+      <div class="lm-form">
+        <div class="lm-input"></div>
+        <div class="lm-input"></div>
+        <div class="lm-btn"></div>
+      </div>
+    </div>
+    <p class="note">A split panel: brand and product context on the left (still on the green ground), a plain
+      dark form on the right. No gradient, no photo &mdash; the same solid-surface rule as everywhere else.</p>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

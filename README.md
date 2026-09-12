@@ -19,6 +19,8 @@ S-Care is an end-to-end system built around a smart wearable device designed for
 
 ## 🏗️ System Architecture
 
+The wearable never talks to the database directly, and it never calls the backend over plain HTTP either. It **publishes to an MQTT broker**, and a subscriber on the backend does the writing. On a device that pays for cellular data by the byte, one persistent, lightweight MQTT connection is dramatically cheaper than polling or POSTing over HTTP — no repeated TCP/TLS handshakes, tiny fixed-size packets, and a QoS layer built for flaky connections. It also decouples the two sides: the ESP32 keeps publishing even while the backend restarts or redeploys, and the broker holds the messages until a subscriber is listening again.
+
 ```text
 ┌─────────────────────────────────────────────┐
 │     Wearable Hardware (LilyGO TTGO T-Call)  │
@@ -32,34 +34,48 @@ S-Care is an end-to-end system built around a smart wearable device designed for
 │  Connectivity: Wi-Fi + M2M SIM (Cellular)   │
 └──────────────┬──────────────┬───────────────┘
                │              │
-    ┌──────────▼──┐    ┌──────▼──────────┐
-    │  HTTP/MQTT  │    │  SMS Direct     │
-    │  (Wi-Fi)    │    │  (Cellular)     │
-    └──────┬──────┘    └──────┬──────────┘
-           │                  │
-           ▼                  ▼
-┌─────────────────────┐  ┌──────────────────┐
-│  S-Care Backend     │  │ Emergency        │
-│  (Express.js)       │  │ Contacts (SMS)   │
-│  Hosted on Render   │  └──────────────────┘
-└────┬────┬────┬──────┘
-     │    │    │
-     ▼    ▼    ▼
-┌────────┐ ┌──────────┐ ┌───────────────┐
-│ Postgre│ │ InfluxDB │ │    Redis      │
-│ SQL    │ │ Cloud    │ │    Cache      │
-│(RDBMS) │ │(Timeseri)│ │  & Pub/Sub   │
-└────────┘ └──────────┘ └───────────────┘
-     │          │              │
-     └──────────┴──────────────┘
-                │
-                ▼
-┌──────────────────────────────────┐
-│   Web Dashboard                  │
-│   React + Vite + Tailwind CSS v4 │
-│   TypeScript                     │
-└──────────────────────────────────┘
+      publish  │              │  SOS only — independent
+   (Wi-Fi, MQTT)              │  of Wi-Fi/broker
+               │              │
+               ▼              ▼
+     ┌───────────────────┐  ┌──────────────────┐
+     │   MQTT Broker      │  │ Emergency        │
+     │ (e.g. Mosquitto /  │  │ Contacts (SMS)   │
+     │  HiveMQ / EMQX)    │  └──────────────────┘
+     └─────────┬──────────┘
+               │ subscribe
+               ▼
+   ┌─────────────────────────────┐
+   │  S-Care Backend             │
+   │  (Express.js REST API  +    │
+   │   MQTT subscriber worker)   │
+   │  Hosted on Render           │
+   └────┬────────┬────────┬──────┘
+        │        │        │
+        ▼        ▼        ▼
+   ┌────────┐ ┌──────────┐ ┌───────────────┐
+   │ Postgre│ │ InfluxDB │ │    Redis      │
+   │ SQL    │ │ Cloud    │ │    Cache      │
+   │(RDBMS) │ │(Timeseri)│ │  & Pub/Sub    │
+   └────────┘ └──────────┘ └───────────────┘
+        │          │              │
+        └──────────┴──────────────┘
+                   │
+                   ▼
+┌───────────────────────────────────────────┐
+│   Web Dashboard                            │
+│   Public: Home, About                      │
+│   Behind login: Dashboard, Alerts, Devices │
+│   React + Vite + Tailwind CSS v4 + TS      │
+└───────────────────────────────────────────┘
 ```
+
+**Why a broker instead of raw HTTP/SMS for telemetry:**
+
+- **Cost** — one open MQTT connection replaces a new HTTP request (and TLS handshake) per reading, which matters directly on a metered M2M SIM plan and saves battery/radio time on the ESP32.
+- **Decoupling** — the subscriber can restart, redeploy, or briefly fall behind without the wearable losing data; the broker (with a persistent session/QoS 1) holds messages until the backend is ready again.
+- **Fan-out** — the same `device/{id}/vitals` and `device/{id}/alerts` topics can be subscribed to by more than one consumer later (e.g. the storage writer and a real-time WebSocket bridge to the dashboard) without the device knowing or caring.
+- **SMS stays separate on purpose** — the SOS button also fires a direct SMS over the cellular SIM to emergency contacts, independent of Wi-Fi and the broker, as a fallback for when connectivity itself is the problem.
 
 ---
 
@@ -77,6 +93,7 @@ S-Care is an end-to-end system built around a smart wearable device designed for
 | Technology | Purpose |
 |---|---|
 | **Node.js + Express 5** | REST API server |
+| **MQTT (mqtt.js)** | Subscriber worker — receives telemetry/alerts from the wearable's broker topics |
 | **PostgreSQL** | Primary relational database (users, devices, alerts) |
 | **InfluxDB Cloud** | Time-series database (heart rate, SpO2 readings) |
 | **Redis** | Caching, session store & real-time Pub/Sub |
@@ -85,6 +102,7 @@ S-Care is an end-to-end system built around a smart wearable device designed for
 ### Infrastructure
 | Technology | Purpose |
 |---|---|
+| **MQTT Broker** | Cloud broker (e.g. HiveMQ Cloud / EMQX Cloud) the ESP32 publishes to — cheaper on cellular data than per-reading HTTP calls |
 | **Render** | Cloud hosting (Backend + PostgreSQL) |
 | **Docker** | Container packaging |
 | **GitHub** | Source control & CI/CD |
@@ -121,7 +139,9 @@ S-Care-Web/
 │   ├── Dockerfile             # Docker image for Render
 │   └── package.json
 │
-└── database/                  # DB schemas & migrations
+└── database/                  # DB design, schemas & migrations
+    ├── README.md              # PostgreSQL + InfluxDB + Redis design plan
+    └── postgres/              # Numbered SQL migrations (+ tests/)
 ```
 
 ---
@@ -174,6 +194,8 @@ npm install
 npm run dev                   # Starts on http://localhost:5173
 ```
 
+Until real bands are connected, the dashboard runs on an in-browser simulator — live vitals, the alert rule engine, the fall countdown and QR pairing all work without the backend. Sign in with `caregiver@scare.demo` / `demo1234` or `admin@scare.demo` / `admin1234`; see [`frontend/README.md`](frontend/README.md) for things to try.
+
 ### 4. Run with Docker (Backend)
 
 ```bash
@@ -193,6 +215,12 @@ PORT=3001
 NODE_ENV=development
 DATABASE_URL=postgresql://user:password@localhost:5432/scare_db
 JWT_SECRET=your_jwt_secret_here
+
+# MQTT broker the wearables publish to — the backend subscribes as a client
+MQTT_BROKER_URL=mqtts://broker.example.com:8883
+MQTT_USERNAME=your_broker_username
+MQTT_PASSWORD=your_broker_password
+MQTT_TOPIC_PREFIX=scare/devices
 ```
 
 ---

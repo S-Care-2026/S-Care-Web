@@ -1,0 +1,205 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#060E09;color:#EEF6F0;
+      font-family:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#25D271} a:hover{color:#4FE08C}
+    code,.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace}
+    .sheet{width:900px;padding:32px;display:flex;flex-direction:column;gap:28px}
+    h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.8px}
+    .lede{margin:0;font-size:13px;line-height:1.6;color:#C9D2CB;max-width:640px}
+    h2{margin:0;font-size:12px;font-weight:800;letter-spacing:1.4px;color:#A2ACA5;text-transform:uppercase}
+    .sec{display:flex;flex-direction:column;gap:12px}
+    .rule{height:1px;background:#38433B}
+
+    .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .sw{border:1px solid #5B675E;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+    .sw .chip{height:64px;display:flex;align-items:flex-end;padding:8px}
+    .sw .chip b{font-size:11px;font-weight:800;letter-spacing:.3px}
+    .sw .meta{padding:9px 10px;background:#111A14;display:flex;flex-direction:column;gap:3px;
+      border-top:1px solid #5B675E}
+    .sw .nm{font-size:12px;font-weight:700}
+    .sw .hex{font-size:11px;font-weight:700;color:#A2ACA5}
+    .sw .cr{font-size:10px;font-weight:700;color:#25D271}
+
+    table{border-collapse:collapse;width:100%;font-size:12px}
+    th{text-align:left;font-size:10px;font-weight:800;letter-spacing:.9px;color:#A2ACA5;
+      text-transform:uppercase;padding:0 12px 8px 0}
+    td{padding:9px 12px 9px 0;border-top:1px solid #38433B;vertical-align:middle}
+    td.n{font-weight:700}
+    .pass{display:inline-flex;align-items:center;gap:5px;padding:2px 7px;border-radius:4px;
+      background:#25D271;color:#04140B;font-size:10px;font-weight:800}
+    .box{width:22px;height:22px;border-radius:4px;display:inline-block;vertical-align:middle;
+      border:1px solid #5B675E}
+
+    .geo{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    .gcard{padding:14px;background:#111A14;border:1px solid #5B675E;border-radius:8px;
+      display:flex;flex-direction:column;gap:9px}
+    .gcard .k{font-size:11px;font-weight:800;letter-spacing:.4px;color:#A2ACA5;text-transform:uppercase}
+    .gcard .v{font-size:19px;font-weight:800;letter-spacing:-.4px}
+    .gcard .d{font-size:11px;line-height:1.5;color:#C9D2CB}
+
+    .badge-shared{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:4px;
+      background:#1A3522;color:#25D271;font-size:11px;font-weight:800;letter-spacing:.3px;width:fit-content}
+  </style>
+</helmet>
+
+<div class="sheet">
+  <div class="sec">
+    <span class="badge-shared">SHARED WITH S-CARE MOBILE</span>
+    <h1>Vital Green &mdash; theme tokens</h1>
+    <p class="lede">The same palette that ships in the mobile app's <code>lib/core/theme/app_colors.dart</code>,
+      carried over unchanged so a caregiver reading a fall alert on their phone sees the exact same red on the
+      web dashboard. Three rules: no alpha compositing (every tint is a solid hex), no gradients or shadows, and
+      every foreground measured against the surface it sits on. Ratios below are WCAG 2.1 contrast against the
+      dark card <code>#111A14</code>.</p>
+  </div>
+
+  <div class="sec">
+    <h2>Dark surfaces &mdash; the green ground</h2>
+    <div class="grid">
+      <div class="sw"><div class="chip" style="background:#060E09"><b style="color:#EEF6F0">canvas</b></div>
+        <div class="meta"><span class="nm">darkBackground</span><span class="hex mono">#060E09</span></div></div>
+      <div class="sw"><div class="chip" style="background:#111A14"><b style="color:#EEF6F0">card</b></div>
+        <div class="meta"><span class="nm">darkCard</span><span class="hex mono">#111A14</span></div></div>
+      <div class="sw"><div class="chip" style="background:#1C251F"><b style="color:#EEF6F0">elevated</b></div>
+        <div class="meta"><span class="nm">darkCardElevated</span><span class="hex mono">#1C251F</span></div></div>
+      <div class="sw"><div class="chip" style="background:#5B675E"><b style="color:#060E09">border</b></div>
+        <div class="meta"><span class="nm">darkBorder</span><span class="hex mono">#5B675E</span><span class="cr">3.00:1</span></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Dark text</h2>
+    <div class="grid">
+      <div class="sw"><div class="chip" style="background:#EEF6F0"><b style="color:#060E09">primary</b></div>
+        <div class="meta"><span class="nm">darkTextPrimary</span><span class="hex mono">#EEF6F0</span><span class="cr">16.14:1</span></div></div>
+      <div class="sw"><div class="chip" style="background:#C9D2CB"><b style="color:#060E09">secondary</b></div>
+        <div class="meta"><span class="nm">darkTextSecondary</span><span class="hex mono">#C9D2CB</span><span class="cr">11.48:1</span></div></div>
+      <div class="sw"><div class="chip" style="background:#A2ACA5"><b style="color:#060E09">muted</b></div>
+        <div class="meta"><span class="nm">darkTextMuted</span><span class="hex mono">#A2ACA5</span><span class="cr">7.60:1</span></div></div>
+      <div class="sw"><div class="chip" style="background:#38433B"><b style="color:#EEF6F0">hairline</b></div>
+        <div class="meta"><span class="nm">darkDivider</span><span class="hex mono">#38433B</span><span class="cr">grid &amp; row rules</span></div></div>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="sec">
+    <h2>Semantic accents &mdash; dark</h2>
+    <table>
+      <tr><th style="width:150px">Token</th><th style="width:120px">Hex</th>
+        <th style="width:110px">On card</th><th style="width:130px">Solid-fill text</th><th>Role</th></tr>
+      <tr><td class="n">primary / safe</td>
+        <td><span class="box" style="background:#25D271"></span> <code>#25D271</code></td>
+        <td>8.92:1 <span class="pass">AAA</span></td>
+        <td><span class="box" style="background:#25D271"></span> <code>#04140B</code></td>
+        <td>Brand, normal vitals, active nav item, primary buttons</td></tr>
+      <tr><td class="n">critical</td>
+        <td><span class="box" style="background:#FB5A50"></span> <code>#FB5A50</code></td>
+        <td>5.65:1 <span class="pass">AA</span></td>
+        <td><span class="box" style="background:#FB5A50"></span> <code>#1A0605</code></td>
+        <td>SOS, fall, critical device</td></tr>
+      <tr><td class="n">warning</td>
+        <td><span class="box" style="background:#FDBA33"></span> <code>#FDBA33</code></td>
+        <td>10.36:1 <span class="pass">AAA</span></td>
+        <td><span class="box" style="background:#FDBA33"></span> <code>#1A1203</code></td>
+        <td>Anomaly, low battery</td></tr>
+      <tr><td class="n">info</td>
+        <td><span class="box" style="background:#44ACFB"></span> <code>#44ACFB</code></td>
+        <td>7.23:1 <span class="pass">AAA</span></td>
+        <td><span class="box" style="background:#44ACFB"></span> <code>#04140B</code></td>
+        <td>Notices, patient count</td></tr>
+      <tr><td class="n">offline</td>
+        <td><span class="box" style="background:#8A968D"></span> <code>#8A968D</code></td>
+        <td>5.78:1 <span class="pass">AA</span></td>
+        <td><span class="box" style="background:#8A968D"></span> <code>#060E09</code></td>
+        <td>Unpaired / not worn</td></tr>
+      <tr><td class="n">heartRate</td>
+        <td><span class="box" style="background:#FC7899"></span> <code>#FC7899</code></td>
+        <td>7.01:1 <span class="pass">AAA</span></td>
+        <td><span class="box" style="background:#FC7899"></span> <code>#1A0605</code></td>
+        <td>Rose, so it never reads as &ldquo;critical red&rdquo;</td></tr>
+      <tr><td class="n">spO2</td>
+        <td><span class="box" style="background:#27CEDE"></span> <code>#27CEDE</code></td>
+        <td>9.28:1 <span class="pass">AAA</span></td>
+        <td><span class="box" style="background:#27CEDE"></span> <code>#04140B</code></td>
+        <td>Oxygen series</td></tr>
+      <tr><td class="n">temperature</td>
+        <td><span class="box" style="background:#FCA679"></span> <code>#FCA679</code></td>
+        <td>9.20:1 <span class="pass">AAA</span></td>
+        <td><span class="box" style="background:#FCA679"></span> <code>#1A0605</code></td>
+        <td>Body temp series</td></tr>
+    </table>
+  </div>
+
+  <div class="sec">
+    <h2>Flat surfaces &mdash; solid, not alpha</h2>
+    <p class="lede">The same idea as solid, named colors &mdash; predictable, and measured once, instead of an
+      accent composited over the card at 8&ndash;15% alpha.</p>
+    <div class="grid">
+      <div class="sw"><div class="chip" style="background:#1A3522;justify-content:center;align-items:center">
+        <b style="color:#25D271;font-size:13px">6.68:1</b></div>
+        <div class="meta"><span class="nm">primarySurface</span><span class="hex mono">#1A3522</span></div></div>
+      <div class="sw"><div class="chip" style="background:#4C1D19;justify-content:center;align-items:center">
+        <b style="color:#EEF6F0;font-size:13px">12.74:1</b></div>
+        <div class="meta"><span class="nm">criticalSurface</span><span class="hex mono">#4C1D19</span></div></div>
+      <div class="sw"><div class="chip" style="background:#382C17;justify-content:center;align-items:center">
+        <b style="color:#FDBA33;font-size:13px">7.95:1</b></div>
+        <div class="meta"><span class="nm">warningSurface</span><span class="hex mono">#382C17</span></div></div>
+      <div class="sw"><div class="chip" style="background:#193043;justify-content:center;align-items:center">
+        <b style="color:#44ACFB;font-size:13px">5.53:1</b></div>
+        <div class="meta"><span class="nm">infoSurface</span><span class="hex mono">#193043</span></div></div>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="sec">
+    <h2>Light theme</h2>
+    <div class="grid">
+      <div class="sw"><div class="chip" style="background:#F3F8F4"><b style="color:#131D17">canvas</b></div>
+        <div class="meta"><span class="nm">lightBackground</span><span class="hex mono">#F3F8F4</span></div></div>
+      <div class="sw"><div class="chip" style="background:#FFFFFF"><b style="color:#131D17">card</b></div>
+        <div class="meta"><span class="nm">lightCard</span><span class="hex mono">#FFFFFF</span></div></div>
+      <div class="sw"><div class="chip" style="background:#819186"><b style="color:#FFFFFF">border</b></div>
+        <div class="meta"><span class="nm">lightBorder</span><span class="hex mono">#819186</span><span class="cr">3.32:1</span></div></div>
+      <div class="sw"><div class="chip" style="background:#131D17"><b style="color:#F3F8F4">text</b></div>
+        <div class="meta"><span class="nm">lightTextPrimary</span><span class="hex mono">#131D17</span><span class="cr">17.27:1</span></div></div>
+      <div class="sw"><div class="chip" style="background:#0D773D"><b style="color:#FFFFFF">primary</b></div>
+        <div class="meta"><span class="nm">primaryDeep</span><span class="hex mono">#0D773D</span><span class="cr">5.64:1</span></div></div>
+      <div class="sw"><div class="chip" style="background:#C8141C"><b style="color:#FFFFFF">critical</b></div>
+        <div class="meta"><span class="nm">critical</span><span class="hex mono">#C8141C</span><span class="cr">5.88:1</span></div></div>
+      <div class="sw"><div class="chip" style="background:#91680C"><b style="color:#FFFFFF">warning</b></div>
+        <div class="meta"><span class="nm">warning</span><span class="hex mono">#91680C</span><span class="cr">5.01:1</span></div></div>
+      <div class="sw"><div class="chip" style="background:#0D6EAC"><b style="color:#FFFFFF">info</b></div>
+        <div class="meta"><span class="nm">info</span><span class="hex mono">#0D6EAC</span><span class="cr">5.46:1</span></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Geometry &mdash; what &ldquo;flat&rdquo; means besides color</h2>
+    <div class="geo">
+      <div class="gcard"><span class="k">Corner radius</span><span class="v">8px</span>
+        <span class="d">4px on chips and badges. Same radius on mobile cards and web sidebar/nav items.</span></div>
+      <div class="gcard"><span class="k">Elevation</span><span class="v">Borders only</span>
+        <span class="d">Surfaces separate by a 3:1 outline, not a tonal step. No shadows, no gradient fills.</span></div>
+      <div class="gcard"><span class="k">Status chips</span><span class="v">Solid fill</span>
+        <span class="d">Filled block plus near-black label &mdash; 5.9&ndash;11:1 &mdash; instead of a tint with a border.</span></div>
+      <div class="gcard"><span class="k">Web-only surface</span><span class="v">Sidebar nav</span>
+        <span class="d">The one new container: same card background and border as everything else, just taller.</span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
