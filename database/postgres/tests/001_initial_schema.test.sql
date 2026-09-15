@@ -1,5 +1,4 @@
--- Behaviour tests for database/postgres/001_initial_schema.sql.
--- Run against a fresh database after applying the schema. Any failure aborts.
+-- Behaviour tests for 001_initial_schema.sql. Run on a fresh database after applying the schema.
 \set ON_ERROR_STOP 1
 \set QUIET 1
 \o /dev/null
@@ -35,8 +34,6 @@ BEGIN
   RETURN plan;
 END $$;
 
--- ── Fixtures (names from S-Care Mobile's mock data) ──
--- facility A = ...0a, facility B = ...0b
 INSERT INTO facilities (id, name) VALUES
   ('00000000-0000-4000-8000-00000000000a', 'Sunrise Care Home'),
   ('00000000-0000-4000-8000-00000000000b', 'Another Home');
@@ -67,19 +64,16 @@ INSERT INTO devices (id, device_uid, facility_id, claimed_at) VALUES
   ('50000000-0000-4000-8000-000000000999', 'SC-DEV-999', '00000000-0000-4000-8000-00000000000b', now());
 INSERT INTO devices (device_uid) VALUES ('SC-DEV-UNCLAIMED');
 
--- ── Places ──
 SELECT pg_temp.expect_error($$INSERT INTO rooms (facility_id, zone_id, name) VALUES ('00000000-0000-4000-8000-00000000000a', '10000000-0000-4000-8000-000000000001', '112')$$, '23505');
 INSERT INTO rooms (facility_id, name) VALUES ('00000000-0000-4000-8000-00000000000a', 'Lobby');
 SELECT pg_temp.expect_error($$INSERT INTO rooms (facility_id, name) VALUES ('00000000-0000-4000-8000-00000000000a', 'Lobby')$$, '23505');
 SELECT pg_temp.expect_error($$INSERT INTO rooms (facility_id, zone_id, name) VALUES ('00000000-0000-4000-8000-00000000000a', '10000000-0000-4000-8000-000000000003', 'X')$$, '23503');
 SELECT pg_temp.expect_error($$INSERT INTO patients (facility_id, room_id, full_name) VALUES ('00000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000003', 'Wrong Room')$$, '23503');
 
--- ── People ──
 SELECT pg_temp.expect((SELECT count(*) FROM users WHERE email = 'jordan.cole@EXAMPLE.org') = 1, 'emails match case-insensitively');
 SELECT pg_temp.expect_error($$INSERT INTO users (email, full_name) VALUES ('JORDAN.COLE@example.org', 'Dup')$$, '23505');
 SELECT pg_temp.expect_error($$INSERT INTO users (email, full_name, phone) VALUES ('x@example.org', 'X', '0901234567')$$, '23514');
 
--- ── Emergency contacts ──
 INSERT INTO emergency_contacts (id, patient_id, name, relationship, phone, priority) VALUES
   ('60000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000001', 'Head Nurse', 'Primary Caregiver', '+84901234567', 1),
   ('60000000-0000-4000-8000-000000000002', '40000000-0000-4000-8000-000000000001', 'Daughter', 'Family', '+84907654321', 2);
@@ -88,12 +82,10 @@ UPDATE emergency_contacts SET priority = 3 - priority WHERE patient_id = '400000
 SELECT pg_temp.expect((SELECT priority FROM emergency_contacts WHERE id = '60000000-0000-4000-8000-000000000002') = 1, 'contact priorities swap in one UPDATE');
 SELECT pg_temp.expect_error($$INSERT INTO emergency_contacts (patient_id, name, relationship, phone, priority) VALUES ('40000000-0000-4000-8000-000000000002', 'Bad', 'Family', '+84 90 123 4567', 1)$$, '23514');
 
--- ── Devices ──
 SELECT pg_temp.expect_error($$INSERT INTO devices (device_uid) VALUES ('SC/DEV/1')$$, '23514');
 SELECT pg_temp.expect_error($$INSERT INTO devices (device_uid) VALUES ('SC-DEV-+')$$, '23514');
 SELECT pg_temp.expect_error($$INSERT INTO devices (device_uid, facility_id) VALUES ('SC-DEV-HALF', '00000000-0000-4000-8000-00000000000a')$$, '23514');
 
--- ── Assignments ──
 -- SC-DEV-204: Eleanor from -20d to -5d, then Clara from -5d onwards.
 INSERT INTO device_assignments (facility_id, device_id, patient_id, assigned_at, unassigned_at) VALUES
   ('00000000-0000-4000-8000-00000000000a', '50000000-0000-4000-8000-000000000204', '40000000-0000-4000-8000-000000000002', now() - interval '20 days', now() - interval '5 days');
@@ -122,7 +114,6 @@ SELECT pg_temp.expect(
   = '40000000-0000-4000-8000-000000000003',
   'current sample resolves to the current wearer (Clara)');
 
--- ── Thresholds ──
 INSERT INTO alert_thresholds (facility_id, hr_warn_high) VALUES ('00000000-0000-4000-8000-00000000000a', 105);
 INSERT INTO alert_thresholds (facility_id, patient_id, hr_warn_high, sustain_seconds)
   VALUES ('00000000-0000-4000-8000-00000000000a', '40000000-0000-4000-8000-000000000001', 110, 120);
@@ -141,7 +132,6 @@ SELECT pg_temp.expect_error($$INSERT INTO alert_thresholds (facility_id) VALUES 
 SELECT pg_temp.expect_error($$INSERT INTO alert_thresholds (facility_id, hr_warn_low, hr_warn_high) VALUES ('00000000-0000-4000-8000-00000000000b', 120, 100)$$, '23514');
 SELECT pg_temp.expect_error($$INSERT INTO alert_thresholds (facility_id, patient_id) VALUES ('00000000-0000-4000-8000-00000000000a', '40000000-0000-4000-8000-000000000009')$$, '23503');
 
--- ── Alerts ──
 -- Fall: detected (pending), then QoS 1 redelivers the same event.
 INSERT INTO alerts (facility_id, patient_id, device_id, type, severity, status, source, device_event_id, occurred_at, impact_g)
 VALUES ('00000000-0000-4000-8000-00000000000a', '40000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000102',
@@ -197,7 +187,6 @@ SELECT pg_temp.expect_error($$INSERT INTO alerts (facility_id, patient_id, type,
 SELECT pg_temp.expect_error($$INSERT INTO alerts (facility_id, type, severity, source, occurred_at) VALUES ('00000000-0000-4000-8000-00000000000a', 'sos', 'critical', 'device', now())$$, '23514');
 SELECT pg_temp.expect_error($$INSERT INTO alerts (facility_id, patient_id, type, severity, source, occurred_at) VALUES ('00000000-0000-4000-8000-00000000000b', '40000000-0000-4000-8000-000000000001', 'sos', 'critical', 'manual', now())$$, '23503');
 
--- ── Outbox ──
 INSERT INTO alert_notifications (alert_id, channel, recipient_user_id)
 SELECT id, 'push', '30000000-0000-4000-8000-000000000001' FROM alerts WHERE device_event_id IN ('inc-2', 'inc-3');
 WITH next AS (
@@ -209,14 +198,12 @@ WITH next AS (
   RETURNING n.id)
 SELECT pg_temp.expect((SELECT count(*) FROM claimed) = 2, 'notifier claims queued rows with SKIP LOCKED');
 
--- ── Places: zone deletion ──
 DELETE FROM zones WHERE id = '10000000-0000-4000-8000-000000000002';
 SELECT pg_temp.expect(
   (SELECT zone_id IS NULL FROM rooms WHERE id = '20000000-0000-4000-8000-000000000002')
   AND (SELECT room_id IS NOT NULL FROM patients WHERE id = '40000000-0000-4000-8000-000000000002'),
   'deleting a zone keeps its rooms (zone_id -> NULL) and their patients');
 
--- ── Index usage on hot paths ──
 SET enable_seqscan = off;
 SELECT pg_temp.expect(
   pg_temp.plan_of($$SELECT * FROM alerts WHERE facility_id = '00000000-0000-4000-8000-00000000000a' AND status IN ('pending', 'open', 'acknowledged') ORDER BY occurred_at DESC LIMIT 50$$)

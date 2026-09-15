@@ -10,7 +10,6 @@ import type { PatientStatus, Zone } from '../../lib/types'
 const W = 1000
 const H = 640
 
-/** Campus layout: four wings around a central courtyard, like the mobile app's map. */
 const WINGS: Record<Zone, { x: number; y: number; w: number; h: number }> = {
   'North Wing': { x: 60, y: 50, w: 380, h: 230 },
   'West Wing': { x: 560, y: 50, w: 380, h: 230 },

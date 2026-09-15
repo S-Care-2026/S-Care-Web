@@ -19,7 +19,6 @@ function readSession(): User | null {
   }
 }
 
-/** Demo authentication. Swap for POST /api/auth/login + refresh tokens later. */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(readSession)
 
@@ -31,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       ;(remember ? localStorage : sessionStorage).setItem(KEY, u.id)
     } catch {
-      /* storage unavailable: stay signed in for this page only */
+      /* storage unavailable */
     }
     setUser(u)
     return null
@@ -51,7 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-/** Gate for everything behind Login. */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const location = useLocation()

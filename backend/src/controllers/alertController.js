@@ -1,9 +1,3 @@
-// ──────────────────────────────────────────────────────────────
-// alertController.js — Fall detection & SOS alert logic
-// Generates random demo data when no real DB is connected
-// ──────────────────────────────────────────────────────────────
-
-// Helper: generate random demo alerts
 function generateDemoAlerts(count = 20) {
   const types = ["FALL", "SOS", "HEART_RATE", "SPO2"];
   const severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];

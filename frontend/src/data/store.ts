@@ -4,7 +4,6 @@ import { batteryLevel, hrLevel, spo2Level, worst } from '../lib/thresholds'
 import { isActive } from '../lib/format'
 import type { Alert, Patient, PatientStatus } from '../lib/types'
 
-/** One simulator for the whole app — it plays the backend until real bands exist. */
 export const sim = createSimulator()
 
 export function useSim(): SimState {
@@ -13,7 +12,6 @@ export function useSim(): SimState {
 
 const wallClock = () => Date.now()
 
-/** A ticking clock for countdowns and "2m ago" labels. */
 export function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(wallClock)
   useEffect(() => {
@@ -46,7 +44,6 @@ export function patientStatus(state: SimState, patient: Patient): PatientStatus 
 
 export const SEVERITY_RANK = { critical: 0, warning: 1, info: 2 } as const
 
-/** Active first, then most severe, then newest. */
 export function sortAlerts(alerts: Alert[]): Alert[] {
   return [...alerts].sort((a, b) => {
     const act = Number(isActive(b.status)) - Number(isActive(a.status))

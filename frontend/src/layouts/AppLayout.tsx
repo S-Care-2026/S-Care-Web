@@ -52,7 +52,6 @@ export function AppLayout() {
     document.title = `${title} · S-Care`
   }, [title])
 
-  // Every alert that opens anywhere on the ward surfaces as a toast.
   useEffect(
     () =>
       sim.onEvent((e) => {
@@ -121,7 +120,6 @@ export function AppLayout() {
             aria-label="Log out"
             title="Log out"
             onClick={() => {
-              // One transition, so the auth gate never renders "signed out" on an app route and bounces to /login.
               startTransition(() => {
                 navigate('/')
                 logout()

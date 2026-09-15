@@ -1,4 +1,3 @@
-/** Recent trend only — no axes; the exact values live in the panel it sits in. */
 export function Sparkline({ values, color, fill }: { values: number[]; color: string; fill?: string }) {
   if (values.length < 2) return null
   const W = 100

@@ -1,6 +1,3 @@
-// The demo world. Patients, bands and alerts are the same ones S-Care Mobile's
-// MockDataGenerator uses, so both apps show the same ward.
-
 import type { Alert, Device, EmergencyContact, Patient, Thresholds, User } from '../lib/types'
 
 export interface Baseline {
@@ -48,7 +45,6 @@ export const SEED_PATIENTS: SeedPatient[] = [
   },
 ]
 
-/** Facility defaults. Sustain time is short so the rule engine is visible in a demo. */
 export const SEED_FACILITY_THRESHOLDS: Partial<Thresholds> = {
   sustainSeconds: 20,
 }

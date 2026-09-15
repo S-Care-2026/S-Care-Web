@@ -13,7 +13,6 @@ const LEVEL_TEXT: Record<Level, string> = {
   critical: 'Critical',
 }
 
-/** Grafana-style stat panel. The value is colored by threshold level, and the level is also written out. */
 export function StatPanel({
   label,
   value,

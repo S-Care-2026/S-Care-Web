@@ -1,8 +1,3 @@
-// In-browser stand-in for the whole backend: bands publishing vitals, the MQTT
-// subscriber's rule engine, and the alert API. State is immutable per tick so
-// React can subscribe with useSyncExternalStore. Replace with API + WebSocket
-// calls once real bands exist.
-
 import { batteryLevel, effectiveThresholds, hrLevel, spo2Level } from '../lib/thresholds'
 import type {
   Alert,
@@ -29,7 +24,6 @@ import {
 } from './seed'
 
 export const TICK_MS = 2000
-/** Live buffer: 15 minutes of 2 s samples. */
 const BUFFER_SAMPLES = 450
 const FALL_COUNTDOWN_MS = 15_000
 
@@ -59,8 +53,6 @@ export type SimEvent =
   | { kind: 'alert-opened'; alert: Alert }
   | { kind: 'alert-escalated'; alert: Alert }
 
-// ── Persistence (so a reload keeps what you changed) ─────────────────────────
-
 const STORAGE_KEY = 'scare.sim.v1'
 
 interface Persisted {
@@ -87,8 +79,6 @@ function loadSaved(): Persisted | null {
     return null
   }
 }
-
-// ── Randomness ───────────────────────────────────────────────────────────────
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min)
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
@@ -124,7 +114,6 @@ function seedBuffers(base: Baseline, now: number, worn: boolean, online: boolean
   const buffers: VitalBuffers = { hr: [], spo2: [], temp: [] }
   if (!worn || !online) return buffers
   let v: Vitals = { hr: base.hr, spo2: base.spo2, temp: base.temp, ts: now }
-  // 5 minutes of history so the live panel opens with a trace, not a dot.
   for (let i = 150; i > 0; i--) {
     v = step(v, base, now - i * TICK_MS)
     buffers.hr.push({ t: v.ts, v: v.hr! })
@@ -139,8 +128,6 @@ const push = (arr: Sample[], s: Sample) => {
   next.push(s)
   return next
 }
-
-// ── Helpers over state ───────────────────────────────────────────────────────
 
 export function locationLabel(p: Patient | undefined): string {
   return p ? `Room ${p.room} • ${p.zone}` : 'Unassigned band'
@@ -159,14 +146,13 @@ function formatPhone(e164: string): string {
 }
 export { formatPhone }
 
-// ── Simulator ────────────────────────────────────────────────────────────────
-
 export interface PairInput {
   deviceId: string
   existingPatientId?: string
   newPatient?: { name: string; age: number; sex: Sex; room: string; zone: Zone }
 }
 
+/** In-browser stand-in for the backend: bands publishing vitals, the MQTT subscriber's rule engine and the alert API. */
 export function createSimulator() {
   const baselines = new Map<string, Baseline>()
   const breaches = new Map<string, { since: number; critCount: number }>()
@@ -210,7 +196,6 @@ export function createSimulator() {
     }
   }
 
-  /** Rebuilds live buffers from saved baselines; everything else comes back as it was. */
   function restoreState(saved: Persisted): SimState {
     const now = Date.now()
     baselines.clear()
@@ -261,7 +246,7 @@ export function createSimulator() {
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(saved))
     } catch {
-      /* storage full or unavailable: the demo still runs, it just won't survive a reload */
+      /* storage unavailable */
     }
   }
 
@@ -362,7 +347,7 @@ export function createSimulator() {
   const activeOf = (alerts: Alert[], pred: (a: Alert) => boolean) =>
     alerts.find((a) => isActive(a.status) && pred(a))
 
-  // ── Tick ──
+  /** One step: confirm pending falls, flag missed check-ins, then run the battery and vitals rules with dedupe. */
   function tick() {
     const now = Date.now()
     let s: SimState = { ...state, now }
@@ -384,7 +369,6 @@ export function createSimulator() {
     })
     s = { ...s, devices }
 
-    // Pending falls: confirm when the countdown runs out.
     alerts = alerts.map((a) => {
       if (a.status !== 'pending' || !a.countdownEndsAt || now < a.countdownEndsAt) return a
       const next: Alert = {
@@ -404,7 +388,6 @@ export function createSimulator() {
     for (const dev of devices) {
       const patient = s.patients.find((p) => p.id === dev.patientId)
 
-      // Offline: two missed check-ins.
       const overdue = !dev.online && now - dev.lastSeen > dev.heartbeatSec * 2000
       const activeOffline = activeOf(alerts, (a) => a.type === 'offline' && a.deviceId === dev.id)
       if (overdue && !activeOffline) {
@@ -427,7 +410,6 @@ export function createSimulator() {
       if (!patient) continue
       const t = thresholdsFor(s, patient.id)
 
-      // Battery.
       const bLevel = batteryLevel(dev.battery, t)
       const activeBattery = activeOf(alerts, (a) => a.type === 'low_battery' && a.deviceId === dev.id)
       if (dev.online && bLevel !== 'normal') {
@@ -444,7 +426,6 @@ export function createSimulator() {
         }
       }
 
-      // Vitals.
       if (!dev.online || !dev.worn) {
         if (dev.online) vitals[patient.id] = { hr: null, spo2: null, temp: null, ts: now }
         continue
@@ -498,7 +479,6 @@ export function createSimulator() {
       }
     }
 
-    // Deliveries land one tick after sending.
     alerts = alerts.map((a) =>
       a.notifications.some((n) => n.channel === 'push' && n.status === 'sent' && now - n.at >= TICK_MS)
         ? { ...a, notifications: a.notifications.map((n) => (n.channel === 'push' && n.status === 'sent' ? { ...n, status: 'delivered' } : n)) }
@@ -540,7 +520,6 @@ export function createSimulator() {
       }
     },
 
-    // ── Simulation controls ──
     setRunning(running: boolean) {
       set({ running })
       if (running) {
@@ -573,7 +552,6 @@ export function createSimulator() {
       })
     },
 
-    // ── Alerts ──
     acknowledge(alertId: string, by: string) {
       mapAlert(alertId, (a) =>
         a.status !== 'open' ? a : {
@@ -588,7 +566,6 @@ export function createSimulator() {
           events: [...a.events, { at: Date.now(), kind: 'resolved', by, text: `Resolved — ${resolution === 'assisted' ? 'assisted the patient' : resolution === 'false_alarm' ? 'false alarm' : 'no action needed'}` }],
         })
     },
-    /** Simulates the wearer pressing Cancel during the band's countdown. */
     cancelPending(alertId: string) {
       mapAlert(alertId, (a) => {
         if (a.status !== 'pending') return a
@@ -621,7 +598,6 @@ export function createSimulator() {
       return { alert, duplicate: false }
     },
 
-    // ── Thresholds ──
     setFacilityThresholds(t: Partial<Thresholds>) {
       set({ facilityThresholds: { ...t }, devices: state.devices.map((d) => ({ ...d, configVersion: d.configVersion + 1 })) })
     },
@@ -632,7 +608,6 @@ export function createSimulator() {
       set({ overrides, devices: bumpConfig(patientId) })
     },
 
-    // ── Emergency contacts (the band carries these for its SMS fallback) ──
     addContact(c: Omit<EmergencyContact, 'id' | 'priority'>): string | null {
       const mine = state.contacts.filter((x) => x.patientId === c.patientId)
       if (mine.length >= 5) return 'A band stores at most 5 emergency numbers.'
@@ -666,7 +641,6 @@ export function createSimulator() {
       set({ contacts: state.contacts.map((c) => (c.id === id ? { ...c, ...patch } : c)), devices: bumpConfig(target.patientId) })
     },
 
-    // ── QR pairing ──
     pair(input: PairInput): { error: string } | { patientId: string } {
       const uid = input.deviceId.trim().toUpperCase()
       if (!/^[A-Z0-9_-]{3,64}$/.test(uid)) return { error: 'Band ids use letters, digits, - and _ only (they become part of an MQTT topic).' }

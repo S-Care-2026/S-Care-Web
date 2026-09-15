@@ -1,6 +1,3 @@
-// ──────────────────────────────────────────────────────────────
-// api.js — Central API router
-// ──────────────────────────────────────────────────────────────
 import { Router } from "express";
 import {
   getAlerts,
@@ -17,7 +14,6 @@ import {
 
 const router = Router();
 
-// ── Health check ──
 router.get("/health", (req, res) => {
   res.json({
     status: "ok",
@@ -27,15 +23,12 @@ router.get("/health", (req, res) => {
   });
 });
 
-// ── Dashboard ──
 router.get("/dashboard", getDashboard);
 
-// ── Alerts ──
 router.get("/alerts", getAlerts);
 router.get("/alerts/stats", getAlertStats);
 router.post("/alerts", createAlert);
 
-// ── Devices ──
 router.get("/devices", getDevices);
 router.get("/devices/:id", getDeviceById);
 router.get("/devices/:id/health", getDeviceHealth);

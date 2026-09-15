@@ -89,7 +89,6 @@ function PatientView({ patientId }: { patientId: string }) {
   const typical = useMemo(() => {
     const b = buffer[vital]
     return b.length ? b.reduce((s, x) => s + x.v, 0) / b.length : VITALS[vital].typical
-    // Recompute once a minute, not every tick, so history doesn't wobble.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vital, minuteBucket, patientId])
   const historyPoints = useMemo<Point[]>(

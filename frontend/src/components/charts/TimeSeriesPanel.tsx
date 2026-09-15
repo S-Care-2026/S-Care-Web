@@ -19,9 +19,7 @@ export interface Threshold {
 interface Props {
   title: string
   unit: string
-  /** CSS color for the line, e.g. var(--sc-hr) */
   color: string
-  /** Solid area/band fill, e.g. var(--sc-hr-fill) */
   fill: string
   points: Point[]
   thresholds?: Threshold[]
@@ -29,7 +27,6 @@ interface Props {
   softMax?: number
   decimals?: number
   timeFormat: 'seconds' | 'minutes' | 'days'
-  /** Highlight the newest sample (streaming panels). */
   live?: boolean
   alarm?: boolean
   height?: number

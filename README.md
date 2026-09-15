@@ -6,18 +6,18 @@ S-Care is an end-to-end system built around a smart wearable device designed for
 
 ---
 
-## ✨ Features
+## Features
 
-- 📊 **Real-time Dashboard** — Live overview of all connected devices, patient vitals, and system status
-- 🫀 **Health Monitoring** — Continuous Heart Rate & SpO2 tracking with historical charts
-- 🚨 **Fall Detection & SOS Alerts** — Multi-layer verification with instant caregiver notifications
-- 📱 **QR Device Registration** — Scan to pair and register new wearable devices
-- 🗺️ **Location Tracking** — GPS-based patient location on map
-- 📈 **Time-Series Analytics** — Long-term health trend analysis via InfluxDB
+- **Real-time Dashboard** — Live overview of all connected devices, patient vitals, and system status
+- **Health Monitoring** — Continuous Heart Rate & SpO2 tracking with historical charts
+- **Fall Detection & SOS Alerts** — Multi-layer verification with instant caregiver notifications
+- **QR Device Registration** — Scan to pair and register new wearable devices
+- **Location Tracking** — GPS-based patient location on map
+- **Time-Series Analytics** — Long-term health trend analysis via InfluxDB
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 The wearable never talks to the database directly, and it never calls the backend over plain HTTP either. It **publishes to an MQTT broker**, and a subscriber on the backend does the writing. On a device that pays for cellular data by the byte, one persistent, lightweight MQTT connection is dramatically cheaper than polling or POSTing over HTTP — no repeated TCP/TLS handshakes, tiny fixed-size packets, and a QoS layer built for flaky connections. It also decouples the two sides: the ESP32 keeps publishing even while the backend restarts or redeploys, and the broker holds the messages until a subscriber is listening again.
 
@@ -79,7 +79,7 @@ The wearable never talks to the database directly, and it never calls the backen
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 | Technology | Purpose |
@@ -109,7 +109,7 @@ The wearable never talks to the database directly, and it never calls the backen
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 S-Care-Web/
@@ -146,7 +146,7 @@ S-Care-Web/
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -206,7 +206,7 @@ docker run -p 3001:3001 --env-file .env scare-backend
 
 ---
 
-## ⚙️ Environment Variables
+## Environment Variables
 
 Create a `.env` file in the `backend/` directory:
 
@@ -225,12 +225,12 @@ MQTT_TOPIC_PREFIX=scare/devices
 
 ---
 
-## 👥 Team
+## Team
 
-S-Care — Built with ❤️ for elderly care.
+S-Care — built for elderly care.
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.

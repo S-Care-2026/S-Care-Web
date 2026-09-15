@@ -1,6 +1,5 @@
 import type { PatientStatus, Thresholds } from './types'
 
-/** Built-in defaults — mirror AppConstants in S-Care Mobile and effective_alert_thresholds in Postgres. */
 export const BUILT_IN_THRESHOLDS: Thresholds = {
   hrCritLow: 45,
   hrWarnLow: 50,
@@ -62,7 +61,6 @@ export function worst(...levels: (Level | PatientStatus)[]): PatientStatus {
   return 'normal'
 }
 
-/** Validation used by the Settings form: bounds must stay ordered. */
 export function validateThresholds(t: Thresholds): string | null {
   if (!(t.hrCritLow < t.hrWarnLow)) return 'Heart rate: critical low must be below warning low.'
   if (!(t.hrWarnLow < t.hrWarnHigh)) return 'Heart rate: warning low must be below warning high.'

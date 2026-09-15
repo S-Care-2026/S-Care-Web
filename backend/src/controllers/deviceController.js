@@ -1,9 +1,3 @@
-// ──────────────────────────────────────────────────────────────
-// deviceController.js — Device & QR code scanning logic
-// Generates random demo data for devices and health readings
-// ──────────────────────────────────────────────────────────────
-
-// Helper: generate demo devices
 function generateDemoDevices() {
   const names = [
     "Nguyễn Văn An",
@@ -36,13 +30,11 @@ function generateDemoDevices() {
   }));
 }
 
-// Helper: generate health history for a device
 function generateHealthHistory(hours = 24) {
   const readings = [];
   const now = Date.now();
 
   for (let i = 0; i < hours * 6; i++) {
-    // Every 10 minutes
     readings.push({
       timestamp: new Date(now - i * 10 * 60 * 1000).toISOString(),
       heart_rate: Math.floor(Math.random() * 30) + 65,

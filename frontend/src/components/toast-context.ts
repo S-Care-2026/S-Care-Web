@@ -7,7 +7,6 @@ export interface ToastInput {
   title: string
   body?: string
   action?: { label: string; onClick: () => void }
-  /** ms; defaults by tone */
   duration?: number
 }
 

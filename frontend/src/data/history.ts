@@ -1,7 +1,3 @@
-// Synthetic long-range history, standing in for InfluxDB rollups (vitals_1m) until
-// real bands report. Each bucket's value is derived from its own timestamp, so the
-// window slides smoothly instead of re-rolling every refresh.
-
 import type { VitalKey } from '../lib/types'
 
 export type RangeKey = 'live' | '1h' | '6h' | '24h' | '7d'
@@ -30,7 +26,6 @@ function hash(str: string): number {
   return h >>> 0
 }
 
-/** Deterministic 0..1 from an integer key. */
 function unit(seed: number): number {
   let t = (seed + 0x6d2b79f5) >>> 0
   t = Math.imul(t ^ (t >>> 15), t | 1)
@@ -46,6 +41,7 @@ const SPEC: Record<VitalKey, { amp: number; spread: number; night: number; lo: n
 
 const roundTo = (v: number, d: number) => Math.round(v * 10 ** d) / 10 ** d
 
+/** Synthetic history standing in for InfluxDB rollups; each bucket derives from its own timestamp so the window slides smoothly. */
 export function history(patientId: string, vital: VitalKey, range: Exclude<RangeKey, 'live'>, end: number, typical: number): Bucket[] {
   const spec = SPEC[vital]
   const r = RANGES.find((x) => x.key === range)!
@@ -55,7 +51,6 @@ export function history(patientId: string, vital: VitalKey, range: Exclude<Range
   for (let i = last - r.points + 1; i <= last; i++) {
     const t = i * r.stepMs
     const hour = new Date(t).getHours() + new Date(t).getMinutes() / 60
-    // Deeper at 03:00, flat through the day.
     const circadian = spec.night * Math.max(0, Math.cos(((hour - 3) / 24) * Math.PI * 2))
     const slow = Math.sin(i * 0.09 + (seed % 97)) * spec.amp + Math.sin(i * 0.37 + (seed % 13)) * spec.amp * 0.4
     const jitter = (unit(seed ^ i) - 0.5) * spec.amp

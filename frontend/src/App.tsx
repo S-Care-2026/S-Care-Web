@@ -20,14 +20,12 @@ export default function App() {
       <AuthProvider>
         <Toaster>
           <Routes>
-            {/* Public: reachable without an account */}
             <Route element={<PublicLayout />}>
               <Route index element={<Home />} />
               <Route path="about" element={<About />} />
             </Route>
             <Route path="login" element={<Login />} />
 
-            {/* Everything else sits behind Login */}
             <Route
               element={
                 <RequireAuth>

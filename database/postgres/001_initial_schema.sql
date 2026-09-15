@@ -1,20 +1,10 @@
--- =============================================================================
--- S-Care — PostgreSQL schema, migration 001
---
--- The relational record: facilities, people, bands and who wears them,
--- thresholds, alerts, auth, audit. Vitals samples live in InfluxDB and hot,
--- rebuildable state lives in Redis — see database/README.md.
---
--- Requires PostgreSQL 15+ (ON DELETE SET NULL (column), UNIQUE NULLS NOT
--- DISTINCT). Tested on 16 and 17.
---
+-- S-Care PostgreSQL schema, migration 001. Requires PostgreSQL 15+.
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/postgres/001_initial_schema.sql
--- =============================================================================
 
 BEGIN;
 
-CREATE EXTENSION IF NOT EXISTS citext;      -- case-insensitive emails
-CREATE EXTENSION IF NOT EXISTS btree_gist;  -- uuid equality inside exclusion constraints
+CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 CREATE FUNCTION set_updated_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -25,18 +15,12 @@ END;
 $$;
 
 
--- ── Places ───────────────────────────────────────────────────────────────────
--- Every tenant-scoped row carries facility_id. Tables that other rows must
--- stay "inside the same facility" as expose UNIQUE (facility_id, id) as a
--- target for composite foreign keys.
-
 CREATE TABLE facilities (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name        text NOT NULL,
-  -- The product serves care homes and families monitoring a relative at home.
   kind        text NOT NULL DEFAULT 'care_home'
                 CHECK (kind IN ('care_home', 'private_home')),
-  timezone    text NOT NULL DEFAULT 'Asia/Ho_Chi_Minh',  -- IANA name; defines "a day" for summaries
+  timezone    text NOT NULL DEFAULT 'Asia/Ho_Chi_Minh',
   address     text,
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
@@ -45,7 +29,7 @@ CREATE TABLE facilities (
 CREATE TABLE zones (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   facility_id  uuid NOT NULL REFERENCES facilities (id),
-  name         text NOT NULL,                      -- 'West Wing'
+  name         text NOT NULL,
   created_at   timestamptz NOT NULL DEFAULT now(),
   UNIQUE (facility_id, name),
   UNIQUE (facility_id, id)
@@ -55,9 +39,8 @@ CREATE TABLE rooms (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   facility_id  uuid NOT NULL REFERENCES facilities (id),
   zone_id      uuid,
-  name         text NOT NULL,                      -- '112'
+  name         text NOT NULL,
   created_at   timestamptz NOT NULL DEFAULT now(),
-  -- Two wings may both have a room 112; NULLS NOT DISTINCT keeps zone-less names unique too.
   UNIQUE NULLS NOT DISTINCT (facility_id, zone_id, name),
   UNIQUE (facility_id, id),
   FOREIGN KEY (facility_id, zone_id) REFERENCES zones (facility_id, id)
@@ -65,17 +48,14 @@ CREATE TABLE rooms (
 );
 
 
--- ── People & access ──────────────────────────────────────────────────────────
-
--- A login identity. Roles are per facility (facility_members), not global.
 CREATE TABLE users (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email              citext NOT NULL UNIQUE,
-  password_hash      text,              -- argon2id/bcrypt; NULL until an invited user sets a password
+  password_hash      text,
   full_name          text NOT NULL,
-  phone              text CHECK (phone ~ '^\+[1-9][0-9]{7,14}$'),  -- E.164
+  phone              text CHECK (phone ~ '^\+[1-9][0-9]{7,14}$'),
   locale             text NOT NULL DEFAULT 'vi' CHECK (locale IN ('vi', 'en')),
-  is_platform_admin  boolean NOT NULL DEFAULT false,  -- S-Care staff: create facilities, provision bands
+  is_platform_admin  boolean NOT NULL DEFAULT false,
   is_active          boolean NOT NULL DEFAULT true,
   last_login_at      timestamptz,
   created_at         timestamptz NOT NULL DEFAULT now(),
@@ -85,8 +65,6 @@ CREATE TABLE users (
 CREATE TABLE facility_members (
   facility_id  uuid NOT NULL REFERENCES facilities (id) ON DELETE CASCADE,
   user_id      uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-  -- admin: manages staff, bands, thresholds. caregiver: sees every patient in the
-  -- facility, handles alerts. family: sees only patients granted in patient_access.
   role         text NOT NULL CHECK (role IN ('admin', 'caregiver', 'family')),
   created_at   timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (facility_id, user_id)
@@ -103,7 +81,6 @@ CREATE TABLE patients (
   avatar_url     text,
   medical_notes  text,
   admitted_at    timestamptz NOT NULL DEFAULT now(),
-  -- Patients are never hard-deleted: alerts and vitals history outlive the stay.
   discharged_at  timestamptz,
   created_at     timestamptz NOT NULL DEFAULT now(),
   updated_at     timestamptz NOT NULL DEFAULT now(),
@@ -115,40 +92,31 @@ CREATE TABLE patients (
 CREATE INDEX patients_facility_current_idx ON patients (facility_id) WHERE discharged_at IS NULL;
 CREATE INDEX patients_room_idx ON patients (room_id);
 
--- Which patients a 'family' member may see.
 CREATE TABLE patient_access (
   patient_id    uuid NOT NULL REFERENCES patients (id) ON DELETE CASCADE,
   user_id       uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-  relationship  text,                               -- 'daughter', 'son', ...
+  relationship  text,
   created_at    timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (patient_id, user_id)
 );
 CREATE INDEX patient_access_user_idx ON patient_access (user_id);
 
--- The numbers the band texts directly over its SIM on SOS — that path never
--- reaches the backend, so these are also pushed to the band (devices.config_version).
 CREATE TABLE emergency_contacts (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_id      uuid NOT NULL REFERENCES patients (id) ON DELETE CASCADE,
-  user_id         uuid REFERENCES users (id) ON DELETE SET NULL,  -- when the contact also has an account
+  user_id         uuid REFERENCES users (id) ON DELETE SET NULL,
   name            text NOT NULL,
   relationship    text NOT NULL,
-  phone           text NOT NULL CHECK (phone ~ '^\+[1-9][0-9]{7,14}$'),  -- E.164
-  -- SMS order; 1 = primary. Capped to what the band stores (match the firmware).
+  phone           text NOT NULL CHECK (phone ~ '^\+[1-9][0-9]{7,14}$'),
   priority        smallint NOT NULL CHECK (priority BETWEEN 1 AND 5),
   notify_on_sos   boolean NOT NULL DEFAULT true,
   notify_on_fall  boolean NOT NULL DEFAULT true,
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now(),
-  -- Deferrable so priorities can be swapped in a single UPDATE.
   CONSTRAINT emergency_contacts_priority_uniq
     UNIQUE (patient_id, priority) DEFERRABLE INITIALLY IMMEDIATE
 );
 
-
--- ── Alert thresholds ─────────────────────────────────────────────────────────
--- One facility default row (patient_id NULL) plus optional per-patient override
--- rows. A NULL column inherits; effective_alert_thresholds resolves the chain.
 
 CREATE TABLE alert_thresholds (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -200,34 +168,23 @@ LEFT JOIN alert_thresholds d ON d.facility_id = p.facility_id AND d.patient_id I
 LEFT JOIN alert_thresholds o ON o.patient_id = p.id;
 
 
--- ── Bands ────────────────────────────────────────────────────────────────────
--- One row per physical band, created when it is provisioned. Live status
--- (online / offline / warning / critical) is derived — Redis check-in deadlines
--- plus open alerts — not stored here.
-
 CREATE TABLE devices (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- Printed on the band and encoded in its QR; also its MQTT client id and topic
-  -- segment, so no '/', '+' or '#'.
   device_uid            text NOT NULL UNIQUE CHECK (device_uid ~ '^[A-Za-z0-9_-]{3,64}$'),
-  label                 text,                       -- 'S-Care Band Beta'
-  facility_id           uuid REFERENCES facilities (id),  -- NULL until claimed by QR scan
+  label                 text,
+  facility_id           uuid REFERENCES facilities (id),
   claimed_at            timestamptz,
-  claim_code_hash       text,                       -- hash of the QR's secret half
-  mqtt_password_hash    text,                       -- if the broker authenticates bands against this DB
+  claim_code_hash       text,
+  mqtt_password_hash    text,
   hardware_model        text NOT NULL DEFAULT 'LilyGO TTGO T-Call ESP32',
   firmware_version      text,
   sim_iccid             text UNIQUE,
-  -- Expected check-in period. Per band, because deep sleep settings differ;
-  -- the band counts as offline after missing two.
   heartbeat_interval_s  integer NOT NULL DEFAULT 60 CHECK (heartbeat_interval_s BETWEEN 5 AND 86400),
-  -- Bumped whenever contacts or thresholds the band carries change; the band
-  -- acks over MQTT. acked < version for long = the band has stale SMS numbers.
   config_version        integer NOT NULL DEFAULT 1,
   config_acked_version  integer NOT NULL DEFAULT 0,
   lifecycle             text NOT NULL DEFAULT 'active'
                           CHECK (lifecycle IN ('active', 'maintenance', 'retired')),
-  last_seen_at          timestamptz,                -- flushed from Redis about once a minute
+  last_seen_at          timestamptz,
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT devices_claim_consistent CHECK ((facility_id IS NULL) = (claimed_at IS NULL)),
@@ -292,39 +249,33 @@ CREATE TRIGGER devices_no_move_while_assigned
   FOR EACH ROW EXECUTE FUNCTION devices_block_move_while_assigned();
 
 
--- ── Alerts ───────────────────────────────────────────────────────────────────
-
 CREATE TABLE alerts (
   id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   facility_id          uuid NOT NULL REFERENCES facilities (id),
-  patient_id           uuid,                  -- NULL for a band not assigned to anyone
-  device_id            uuid REFERENCES devices (id),  -- NULL for manual alerts
+  patient_id           uuid,
+  device_id            uuid REFERENCES devices (id),
   type                 text NOT NULL CHECK (type IN (
                          'fall', 'sos', 'tachycardia', 'bradycardia', 'hypoxemia',
                          'low_battery', 'offline')),
   severity             text NOT NULL CHECK (severity IN ('critical', 'warning', 'info')),
-  -- pending:   fall detected, band's 15 s cancel countdown still running
-  -- cancelled: wearer pressed Cancel — kept as false-alarm data for tuning detection
   status               text NOT NULL DEFAULT 'open' CHECK (status IN (
                          'pending', 'open', 'acknowledged', 'resolved', 'cancelled')),
   source               text NOT NULL CHECK (source IN ('device', 'rules', 'system', 'manual')),
-  -- The band's incident id. Shared by fall_detected / fall_cancelled / fall_confirmed,
-  -- and makes MQTT QoS 1 redelivery a no-op.
   device_event_id      text,
-  occurred_at          timestamptz NOT NULL,  -- band's clock (validated at ingest) or rule time
+  occurred_at          timestamptz NOT NULL,
   received_at          timestamptz NOT NULL DEFAULT now(),
-  location_label       text,                  -- snapshot: 'Room 112 • West Wing'
+  location_label       text,
   latitude             double precision CHECK (latitude BETWEEN -90 AND 90),
   longitude            double precision CHECK (longitude BETWEEN -180 AND 180),
   heart_rate_snapshot  smallint CHECK (heart_rate_snapshot BETWEEN 0 AND 300),
   spo2_snapshot        smallint CHECK (spo2_snapshot BETWEEN 0 AND 100),
-  impact_g             numeric(4, 2),         -- falls
-  details              jsonb NOT NULL DEFAULT '{}'::jsonb,  -- e.g. {"peak_hr": 108, "sustained_s": 360}
+  impact_g             numeric(4, 2),
+  details              jsonb NOT NULL DEFAULT '{}'::jsonb,
   sms_sent_by_device   boolean NOT NULL DEFAULT false,
   acknowledged_at      timestamptz,
   acknowledged_by      uuid REFERENCES users (id) ON DELETE SET NULL,
   resolved_at          timestamptz,
-  resolved_by          uuid REFERENCES users (id) ON DELETE SET NULL,  -- NULL when auto-resolved
+  resolved_by          uuid REFERENCES users (id) ON DELETE SET NULL,
   resolution           text CHECK (resolution IN ('assisted', 'false_alarm', 'no_action_needed')),
   resolution_notes     text,
   created_at           timestamptz NOT NULL DEFAULT now(),
@@ -338,10 +289,8 @@ CREATE TABLE alerts (
   CONSTRAINT alerts_device_source_has_device CHECK (source <> 'device' OR device_id IS NOT NULL)
 );
 
--- Active feed: dashboard banner, Alerts page default view.
 CREATE INDEX alerts_active_idx ON alerts (facility_id, occurred_at DESC)
   WHERE status IN ('pending', 'open', 'acknowledged');
--- Full feed with keyset pagination on (occurred_at, id).
 CREATE INDEX alerts_facility_time_idx ON alerts (facility_id, occurred_at DESC, id DESC);
 CREATE INDEX alerts_patient_time_idx ON alerts (patient_id, occurred_at DESC);
 CREATE INDEX alerts_device_time_idx ON alerts (device_id, occurred_at DESC);
@@ -362,11 +311,10 @@ CREATE UNIQUE INDEX alerts_one_active_device_alert ON alerts (device_id, type)
 CREATE TABLE alert_notifications (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   alert_id              uuid NOT NULL REFERENCES alerts (id) ON DELETE CASCADE,
-  -- sms_device: an SMS the band sent itself over its SIM, reported afterwards.
   channel               text NOT NULL CHECK (channel IN ('push', 'sms', 'sms_device', 'email')),
   recipient_user_id     uuid REFERENCES users (id) ON DELETE SET NULL,
   emergency_contact_id  uuid REFERENCES emergency_contacts (id) ON DELETE SET NULL,
-  destination           text,                 -- masked phone / token suffix, for the trail
+  destination           text,
   status                text NOT NULL DEFAULT 'queued'
                           CHECK (status IN ('queued', 'sent', 'delivered', 'failed')),
   attempts              smallint NOT NULL DEFAULT 0,
@@ -380,15 +328,10 @@ CREATE INDEX alert_notifications_alert_idx ON alert_notifications (alert_id);
 CREATE INDEX alert_notifications_queue_idx ON alert_notifications (created_at) WHERE status = 'queued';
 
 
--- ── Auth ─────────────────────────────────────────────────────────────────────
--- Access tokens are short-lived stateless JWTs (revocation via Redis deny-list).
--- Refresh tokens are opaque, stored hashed, and rotate: presenting an already
--- rotated token revokes its whole family.
-
 CREATE TABLE refresh_tokens (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-  token_hash   bytea NOT NULL UNIQUE,         -- sha256 of the token; the token itself is never stored
+  token_hash   bytea NOT NULL UNIQUE,
   family_id    uuid NOT NULL,
   client       text NOT NULL CHECK (client IN ('web', 'mobile')),
   user_agent   text,
@@ -405,20 +348,18 @@ CREATE TABLE push_tokens (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   platform      text NOT NULL CHECK (platform IN ('android', 'ios', 'web')),
-  token         text NOT NULL UNIQUE,         -- FCM registration token
+  token         text NOT NULL UNIQUE,
   created_at    timestamptz NOT NULL DEFAULT now(),
   last_seen_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX push_tokens_user_idx ON push_tokens (user_id);
 
 
--- ── Record ───────────────────────────────────────────────────────────────────
-
 CREATE TABLE audit_log (
   id             bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   facility_id    uuid REFERENCES facilities (id),
   actor_user_id  uuid REFERENCES users (id) ON DELETE SET NULL,
-  action         text NOT NULL,               -- 'alert.resolve', 'device.claim', 'patient.view', 'auth.login_failed'
+  action         text NOT NULL,
   entity_type    text,
   entity_id      uuid,
   changes        jsonb,
@@ -428,12 +369,9 @@ CREATE TABLE audit_log (
 CREATE INDEX audit_log_facility_time_idx ON audit_log (facility_id, created_at DESC);
 CREATE INDEX audit_log_entity_idx ON audit_log (entity_type, entity_id);
 
--- Long-term vitals history, written nightly from InfluxDB's 1-minute rollups.
--- Kept forever and small (one row per patient per day), so history beyond
--- InfluxDB's retention doesn't depend on the InfluxDB plan.
 CREATE TABLE daily_vital_summaries (
   patient_id    uuid NOT NULL REFERENCES patients (id),
-  day           date NOT NULL,                -- local date in facilities.timezone
+  day           date NOT NULL,
   hr_min        smallint,
   hr_avg        numeric(5, 1),
   hr_max        smallint,
@@ -446,8 +384,6 @@ CREATE TABLE daily_vital_summaries (
   PRIMARY KEY (patient_id, day)
 );
 
-
--- ── updated_at maintenance ───────────────────────────────────────────────────
 
 CREATE TRIGGER facilities_updated_at         BEFORE UPDATE ON facilities         FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER users_updated_at              BEFORE UPDATE ON users              FOR EACH ROW EXECUTE FUNCTION set_updated_at();
