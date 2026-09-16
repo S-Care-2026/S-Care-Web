@@ -8,6 +8,9 @@ export default defineConfig({
     host: true,
   },
   preview: {
-    allowedHosts: ['s-care-web.onrender.com']
+    // Render sets RENDER_EXTERNAL_HOSTNAME (e.g. s-care-web.onrender.com) on web services
+    allowedHosts: process.env.RENDER_EXTERNAL_HOSTNAME
+      ? [process.env.RENDER_EXTERNAL_HOSTNAME]
+      : [],
   }
 })
