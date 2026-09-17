@@ -167,6 +167,8 @@ cd S-Care-Web
 cd backend
 cp .env.example .env          # Configure your environment variables
 npm install
+npm run migrate               # Create/update the Postgres schema (uses DATABASE_URL_UNPOOLED)
+npm run db:seed               # Optional: load demo data — development databases only
 npm run dev                   # Starts on http://localhost:3001
 ```
 

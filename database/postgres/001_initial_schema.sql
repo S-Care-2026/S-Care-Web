@@ -1,7 +1,6 @@
 -- S-Care PostgreSQL schema, migration 001. Requires PostgreSQL 15+.
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/postgres/001_initial_schema.sql
-
-BEGIN;
+-- Apply with `npm run migrate` (in backend/), which wraps each file in a transaction.
+-- By hand: psql "$DATABASE_URL_UNPOOLED" -v ON_ERROR_STOP=1 --single-transaction -f database/postgres/001_initial_schema.sql
 
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS btree_gist;
@@ -392,5 +391,3 @@ CREATE TRIGGER emergency_contacts_updated_at BEFORE UPDATE ON emergency_contacts
 CREATE TRIGGER alert_thresholds_updated_at   BEFORE UPDATE ON alert_thresholds   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER devices_updated_at            BEFORE UPDATE ON devices            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER alerts_updated_at             BEFORE UPDATE ON alerts             FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-COMMIT;

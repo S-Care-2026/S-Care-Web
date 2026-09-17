@@ -7,9 +7,13 @@
   "scripts": {
     "build": "echo 'No build step required for backend'",
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "migrate": "node scripts/migrate.js",
+    "migrate:status": "node scripts/migrate.js status",
+    "db:seed": "node scripts/seed.js"
   },
   "dependencies": {
+    "@influxdata/influxdb3-client": "^2.4.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",

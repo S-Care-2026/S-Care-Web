@@ -1,6 +1,6 @@
 # S-Care database design
 
-> **Status: proposal.** The backend still serves generated demo data, so nothing reads these stores yet. The PostgreSQL part is concrete: [`postgres/001_initial_schema.sql`](postgres/001_initial_schema.sql), with a test script in [`postgres/tests/`](postgres/tests/) that passes on PostgreSQL 16 and 17. The InfluxDB and Redis parts are specified here and get built along with the MQTT subscriber.
+> **Status: proposal.** The backend still serves generated demo data, so nothing reads these stores yet. The PostgreSQL part is concrete: [`postgres/001_initial_schema.sql`](postgres/001_initial_schema.sql), with a test script in [`postgres/tests/`](postgres/tests/) that passes on PostgreSQL 16, 17 and 18. The InfluxDB and Redis parts are specified here and get built along with the MQTT subscriber.
 
 Sized for today — **under 50 users and 100 bands** — and shaped so that 10× and 100× are additive steps, not a rewrite (see [Scaling path](#scaling-path)).
 
@@ -124,15 +124,23 @@ Example `vitals` payload — short keys, in case telemetry ever travels over the
 
 ## PostgreSQL
 
-Requires **PostgreSQL 15+** (tested on 16 and 17) with the `citext` and `btree_gist` extensions, which ship with PostgreSQL.
+Requires **PostgreSQL 15+** (tested on 16, 17 and 18) with the `citext` and `btree_gist` extensions, which ship with PostgreSQL.
+
+Migrations and demo data are applied from `backend/` and use `DATABASE_URL_UNPOOLED` (the direct connection — Neon's pooled URL is refused):
 
 ```bash
-# migrations use the direct (unpooled) connection — on Neon, DATABASE_URL_UNPOOLED
-psql "$DATABASE_URL_UNPOOLED" -v ON_ERROR_STOP=1 -f database/postgres/001_initial_schema.sql
+cd backend
+npm run migrate:status   # applied / pending
+npm run migrate          # apply pending migrations in database/postgres/, in order
+npm run db:seed          # development only: demo data from database/postgres/seeds/
+```
 
+`npm run migrate` records each file in `schema_migrations` with a checksum and refuses to continue if an applied file was edited. The seed mirrors the frontend simulator (same patients, bands and alerts) and can be re-run safely; its logins are listed at the top of [`seeds/001_dev_demo.sql`](postgres/seeds/001_dev_demo.sql).
+
+```bash
 # tests: run against a throwaway database, never production
 createdb scare_test
-psql -d scare_test -v ON_ERROR_STOP=1 -f database/postgres/001_initial_schema.sql
+psql -d scare_test -v ON_ERROR_STOP=1 --single-transaction -f database/postgres/001_initial_schema.sql
 psql -d scare_test -v ON_ERROR_STOP=1 -f database/postgres/tests/001_initial_schema.test.sql
 ```
 
@@ -243,7 +251,7 @@ List endpoints paginate by keyset — `WHERE (occurred_at, id) < ($cursor_time, 
 - **IDs:** `uuid` via `gen_random_uuid()` — safe in URLs and QR flows, and no collisions if data is ever merged or sharded. On PostgreSQL 18, switch the defaults to `uuidv7()` for better index locality.
 - **Time:** `timestamptz` everywhere. `daily_vital_summaries.day` is the facility's local date (`facilities.timezone`).
 - **Status and type columns:** `text` with `CHECK`, not enum types — adding or retiring a value is a one-line migration.
-- **Migrations:** numbered, forward-only SQL files in `database/postgres/`.
+- **Migrations:** numbered, forward-only SQL files in `database/postgres/` (`NNN_snake_case.sql`), applied by `npm run migrate`. Don't write `BEGIN`/`COMMIT` in them — the runner wraps each file in a transaction. Never edit an applied file; add the next number. Start a file with `-- migrate:no-transaction` for statements that can't run in a transaction, such as `CREATE INDEX CONCURRENTLY`.
 
 ---
 
