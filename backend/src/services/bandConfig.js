@@ -44,3 +44,8 @@ export async function publishBandConfig(patientId) {
     );
   }
 }
+
+// After unpairing: the band keeps no numbers from its previous wearer.
+export function publishEmptyConfig(uid, configVersion, heartbeatSeconds) {
+  publishToBand(uid, "config", { config_version: configVersion, heartbeat_interval_s: heartbeatSeconds, contacts: [] }, { qos: 1, retain: true });
+}

@@ -13,7 +13,8 @@
     "db:seed": "node scripts/seed.js",
     "test:mqtt-acl": "node scripts/test-mqtt-acl.js",
     "test:band": "node scripts/test-band.js",
-    "db:create-user": "node scripts/create-user.js"
+    "db:create-user": "node scripts/create-user.js",
+    "db:provision-device": "node scripts/provision-device.js"
   },
   "dependencies": {
     "@influxdata/influxdb3-client": "^2.4.0",
@@ -25,5 +26,8 @@
     "jsonwebtoken": "^9.0.3",
     "mqtt": "^5.16.0",
     "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "qrcode": "^1.5.4"
   }
 }

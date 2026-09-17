@@ -2,6 +2,7 @@ import "./env.js";
 import express from "express";
 import cors from "cors";
 import apiRouter from "./routes/api.js";
+import { AuthError } from "./auth/auth.js";
 import { HttpError } from "./controllers/validate.js";
 import { closeInflux } from "./db/influx.js";
 import { closePostgres, hasPostgres, query } from "./db/postgres.js";
@@ -41,7 +42,7 @@ app.use((req, res) => {
 // Express 5 forwards errors thrown in async handlers here.
 app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
-  if (err instanceof HttpError) return res.status(err.status).json({ success: false, error: err.message });
+  if (err instanceof HttpError || err instanceof AuthError) return res.status(err.status).json({ success: false, error: err.message });
   if (err.type === "entity.parse.failed") return res.status(400).json({ success: false, error: "Request body is not valid JSON" });
   console.error(`[http] ${req.method} ${req.originalUrl} failed:`, err);
   res.status(500).json({ success: false, error: "Something went wrong on the server. Try again." });
