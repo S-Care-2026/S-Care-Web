@@ -5,7 +5,7 @@ import { useAppActions } from '../../components/app/actions-context'
 import { Icon } from '../../components/Icon'
 import { EmptyState } from '../../components/ui'
 import { sortAlerts, useSim } from '../../data/store'
-import { ALERT_TYPE_LABEL, SEVERITY_LABEL, isActive } from '../../lib/format'
+import { ALERT_TYPE_LABEL, SEVERITY_LABEL, alertRef, isActive } from '../../lib/format'
 import type { Alert, AlertType, Severity } from '../../lib/types'
 
 type StatusTab = 'active' | 'resolved' | 'cancelled' | 'all'
@@ -34,7 +34,7 @@ export function Alerts() {
       (a) =>
         (severity === 'all' || a.severity === severity) &&
         (type === 'all' || a.type === type) &&
-        (!q || nameOf(a).toLowerCase().includes(q) || a.id.toLowerCase().includes(q) || a.locationLabel.toLowerCase().includes(q)),
+        (!q || nameOf(a).toLowerCase().includes(q) || alertRef(a.id).toLowerCase().includes(q) || a.locationLabel.toLowerCase().includes(q)),
     ),
   )
   const active = state.alerts.filter((a) => isActive(a.status))

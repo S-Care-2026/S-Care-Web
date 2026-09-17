@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { sim, useSim } from '../../data/store'
-import { ALERT_TYPE_LABEL } from '../../lib/format'
+import { perform, sim, useSim } from '../../data/store'
+import { ALERT_TYPE_LABEL, alertRef } from '../../lib/format'
 import type { AlertType } from '../../lib/types'
 import { ALERT_ICON } from '../alert-icons'
 import { Icon } from '../Icon'
@@ -29,7 +29,7 @@ export function SimulateAlertModal({
   onCreated: (alertId: string) => void
 }) {
   return (
-    <Modal open={open} onClose={onClose} width={560} title={<span className="text-[16px] font-extrabold">Simulate an alert</span>}>
+    <Modal open={open} onClose={onClose} width={560} title={<span className="text-[16px] font-extrabold">{sim.kind === 'live' ? 'Raise an alert' : 'Simulate an alert'}</span>}>
       {open && <SimulateForm key={initialPatientId ?? 'any'} initialPatientId={initialPatientId} onClose={onClose} onCreated={onCreated} />}
     </Modal>
   )
@@ -42,18 +42,27 @@ function SimulateForm({ initialPatientId, onClose, onCreated }: { initialPatient
   const [patientId, setPatientId] = useState(initialPatientId ?? candidates[0]?.id ?? '')
   const [type, setType] = useState<AlertType>('fall')
   const [notes, setNotes] = useState('')
+  const [sending, setSending] = useState(false)
+  const live = sim.kind === 'live'
 
-  const submit = () => {
-    if (!patientId) return
-    const { alert, duplicate } = sim.trigger(patientId, type, notes.trim())
+  const submit = async () => {
+    if (!patientId || sending) return
+    setSending(true)
+    let result: Awaited<ReturnType<typeof sim.trigger>> | undefined
+    const ok = await perform(async () => {
+      result = await sim.trigger(patientId, type, notes.trim())
+    })
+    setSending(false)
+    if (!ok || !result) return
+    const { alert, duplicate } = result
     const name = state.patients.find((p) => p.id === patientId)?.name ?? 'Patient'
     if (duplicate) {
-      toast({ tone: 'info', title: `${ALERT_TYPE_LABEL[type]} is already active for ${name}`, body: `No duplicate raised — see ${alert.id}.` })
+      toast({ tone: 'info', title: `${ALERT_TYPE_LABEL[type]} is already active for ${name}`, body: `No duplicate raised — see ${alertRef(alert.id)}.` })
     } else {
       toast({
         tone: type === 'fall' ? 'warning' : alert.severity === 'critical' ? 'critical' : 'info',
         title: type === 'fall' ? `Fall detected — ${name}` : `${ALERT_TYPE_LABEL[type]} raised — ${name}`,
-        body: type === 'fall' ? 'Countdown started. It opens in 15 s unless cancelled.' : alert.id,
+        body: type === 'fall' ? 'Countdown started. It opens in 15 s unless cancelled.' : alertRef(alert.id),
       })
     }
     onClose()
@@ -65,10 +74,14 @@ function SimulateForm({ initialPatientId, onClose, onCreated }: { initialPatient
       className="flex flex-col gap-5 p-5"
       onSubmit={(e) => {
         e.preventDefault()
-        submit()
+        void submit()
       }}
     >
-      <p className="text-[13px] text-t2">No bands are connected yet, so this raises the alert the way the backend would — including deduplication, notifications and the fall countdown.</p>
+      <p className="text-[13px] text-t2">
+        {live
+          ? 'Raises a real alert, saved on the server and visible to everyone on the team — use it for drills and testing. Duplicates and the fall countdown work as they do for band alerts.'
+          : 'No bands are connected yet, so this raises the alert the way the backend would — including deduplication, notifications and the fall countdown.'}
+      </p>
       <div>
         <label className="field-label" htmlFor="sim-patient">Patient</label>
         <select id="sim-patient" className="input" value={patientId} onChange={(e) => setPatientId(e.target.value)}>
@@ -103,7 +116,7 @@ function SimulateForm({ initialPatientId, onClose, onCreated }: { initialPatient
       </div>
       <div className="flex justify-end gap-2">
         <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        <button type="submit" className="btn btn-danger" disabled={!patientId}>
+        <button type="submit" className="btn btn-danger" disabled={!patientId || sending}>
           <Icon name="bell" size={16} />
           Raise alert
         </button>

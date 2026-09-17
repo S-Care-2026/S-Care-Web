@@ -14,6 +14,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # Public URL of s-care-backend, e.g. https://s-care-backend.onrender.com (read at build time)
+      - key: VITE_API_URL
+        sync: false
 
   - type: web
     name: s-care-backend

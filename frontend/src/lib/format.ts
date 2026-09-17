@@ -81,6 +81,11 @@ export const PATIENT_STATUS_LABEL: Record<PatientStatus, string> = {
   offline: 'Offline',
 }
 
+/** Short reference shown to people: demo ids are already short (ALT-901); database ids are UUIDs. */
+export function alertRef(id: string): string {
+  return id.startsWith('ALT-') ? id : `ALT-${id.slice(0, 6).toUpperCase()}`
+}
+
 export function isActive(status: AlertStatus): boolean {
   return status === 'pending' || status === 'open' || status === 'acknowledged'
 }

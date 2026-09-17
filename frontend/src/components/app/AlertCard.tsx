@@ -1,7 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import { useAuth } from '../../auth/context'
-import { sim, useNow } from '../../data/store'
-import { ALERT_TYPE_LABEL, isActive, timeAgo } from '../../lib/format'
+import { perform, sim, useNow } from '../../data/store'
+import { ALERT_TYPE_LABEL, alertRef, isActive, timeAgo } from '../../lib/format'
 import type { Alert, Patient } from '../../lib/types'
 import { Icon } from '../Icon'
 import { AlertTypeIcon, SeverityChip } from '../ui'
@@ -68,7 +68,7 @@ export function AlertCard({ alert, patient, compact = false }: { alert: Alert; p
         {!compact && <p className="line-clamp-2 text-[12px] leading-[1.45] text-t3">{alert.details}</p>}
         <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-t border-hair pt-2">
           <span className="text-[11px] font-semibold whitespace-nowrap text-t3" title={new Date(alert.occurredAt).toLocaleString()}>
-            {timeAgo(alert.occurredAt, now)} · <span className="font-mono">{alert.id}</span>
+            {timeAgo(alert.occurredAt, now)} · <span className="font-mono">{alertRef(alert.id)}</span>
           </span>
           <span className="ml-auto flex items-center gap-2 whitespace-nowrap">
             {footer}
@@ -76,10 +76,11 @@ export function AlertCard({ alert, patient, compact = false }: { alert: Alert; p
               <button
                 type="button"
                 className="btn btn-sm btn-outline"
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation()
-                  sim.acknowledge(alert.id, user.name)
-                  toast({ tone: 'info', title: `Acknowledged ${alert.id}`, body: `${patient?.name ?? 'Band'} — you’re on it.` })
+                  if (await perform(() => sim.acknowledge(alert.id, user.name))) {
+                    toast({ tone: 'info', title: `Acknowledged ${alertRef(alert.id)}`, body: `${patient?.name ?? 'Band'} — you’re on it.` })
+                  }
                 }}
               >
                 Acknowledge

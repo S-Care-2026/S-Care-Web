@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../../auth/context'
-import { sim, useNow, useSim } from '../../data/store'
+import { perform, sim, useNow, useSim } from '../../data/store'
 import { thresholdsFor } from '../../data/simulator'
-import { ALERT_TYPE_LABEL, RESOLUTION_LABEL, clock, dateTime, isActive, timeAgo } from '../../lib/format'
+import { ALERT_TYPE_LABEL, RESOLUTION_LABEL, alertRef, clock, dateTime, isActive, timeAgo } from '../../lib/format'
 import type { Resolution } from '../../lib/types'
 import { TimeSeriesPanel } from '../charts/TimeSeriesPanel'
 import { Icon, type IconName } from '../Icon'
@@ -34,7 +34,7 @@ function AlertDetail({ alertId, onClose }: { alertId: string; onClose: () => voi
   const [notes, setNotes] = useState('')
 
   const alert = state.alerts.find((a) => a.id === alertId)
-  if (!alert) return <p className="p-5 text-t2">This alert no longer exists.</p>
+  if (!alert) return <p className="p-5 text-t2">{state.ready === false ? 'Loading alert…' : 'This alert no longer exists.'}</p>
 
   const patient = state.patients.find((p) => p.id === alert.patientId)
   const device = state.devices.find((d) => d.id === alert.deviceId)
@@ -43,19 +43,20 @@ function AlertDetail({ alertId, onClose }: { alertId: string; onClose: () => voi
   const active = isActive(alert.status)
   const remaining = alert.countdownEndsAt ? Math.max(0, alert.countdownEndsAt - now) : 0
 
-  const doAck = () => {
+  const doAck = async () => {
     if (!user) return
-    sim.acknowledge(alert.id, user.name)
-    toast({ tone: 'info', title: `Acknowledged ${alert.id}`, body: 'The team can see you’re responding.' })
+    if (await perform(() => sim.acknowledge(alert.id, user.name))) {
+      toast({ tone: 'info', title: `Acknowledged ${alertRef(alert.id)}`, body: 'The team can see you’re responding.' })
+    }
   }
-  const doResolve = () => {
+  const doResolve = async () => {
     if (!user) return
     if (resolution === 'false_alarm' && !notes.trim()) {
       toast({ tone: 'warning', title: 'Add a note for false alarms', body: 'Say what triggered it — it’s used to tune detection.' })
       return
     }
-    sim.resolve(alert.id, user.name, resolution, notes.trim())
-    toast({ tone: 'success', title: `Resolved ${alert.id}`, body: RESOLUTION_LABEL[resolution] })
+    if (!(await perform(() => sim.resolve(alert.id, user.name, resolution, notes.trim())))) return
+    toast({ tone: 'success', title: `Resolved ${alertRef(alert.id)}`, body: RESOLUTION_LABEL[resolution] })
     setResolving(false)
   }
 
@@ -67,7 +68,7 @@ function AlertDetail({ alertId, onClose }: { alertId: string; onClose: () => voi
           <div className="min-w-0 flex-1">
             <h2 className="m-0 text-[20px] font-extrabold tracking-[-0.4px]">{ALERT_TYPE_LABEL[alert.type]}</h2>
             <p className="mt-0.5 font-mono text-[12px] text-t3">
-              {alert.id} · {alert.source === 'device' ? 'from the band' : alert.source === 'rules' ? 'vitals rule' : alert.source === 'system' ? 'system check' : 'raised manually'}
+              {alertRef(alert.id)} · {alert.source === 'device' ? 'from the band' : alert.source === 'rules' ? 'vitals rule' : alert.source === 'system' ? 'system check' : 'raised manually'}
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <SeverityChip severity={alert.severity} />
@@ -86,8 +87,8 @@ function AlertDetail({ alertId, onClose }: { alertId: string; onClose: () => voi
               <div className="h-full bg-amber transition-[width] duration-500" style={{ width: `${(remaining / 15000) * 100}%` }} />
             </div>
             <p className="text-[12px] text-t2">The band beeps for 15 s. If nobody presses Cancel, the alert opens and caregivers are notified.</p>
-            <button type="button" className="btn btn-ghost btn-sm self-start" onClick={() => sim.cancelPending(alert.id)}>
-              Simulate: wearer presses Cancel
+            <button type="button" className="btn btn-ghost btn-sm self-start" onClick={() => void perform(() => sim.cancelPending(alert.id))}>
+              {sim.kind === 'live' ? 'Cancel — the wearer is OK' : 'Simulate: wearer presses Cancel'}
             </button>
           </div>
         )}
@@ -110,7 +111,7 @@ function AlertDetail({ alertId, onClose }: { alertId: string; onClose: () => voi
             <span className="text-right text-[11px] text-t3">
               {device.online ? 'Online' : 'Offline'}
               <br />
-              {Math.round(device.battery)}% battery
+              {device.battery == null ? 'battery —' : `${Math.round(device.battery)}% battery`}
             </span>
           )}
         </div>

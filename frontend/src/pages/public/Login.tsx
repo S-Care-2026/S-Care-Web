@@ -4,6 +4,8 @@ import { useAuth } from '../../auth/context'
 import { Icon } from '../../components/Icon'
 import { useToast } from '../../components/toast-context'
 import { Brand } from '../../components/ui'
+import { API_URL } from '../../data/api'
+import { getDataMode, switchDataMode } from '../../data/mode'
 import { DEMO_USERS } from '../../data/seed'
 
 export function Login() {
@@ -18,6 +20,8 @@ export function Login() {
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const mode = getDataMode()
 
   useEffect(() => {
     document.title = 'Sign in · S-Care'
@@ -55,9 +59,12 @@ export function Login() {
         </div>
         <form
           className="flex w-full max-w-[400px] flex-col gap-6"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault()
-            const err = login(email, password, remember)
+            if (submitting) return
+            setSubmitting(true)
+            const err = await login(email, password, remember)
+            setSubmitting(false)
             if (err) setError(err)
             else navigate(from, { replace: true })
           }}
@@ -66,6 +73,23 @@ export function Login() {
           <div>
             <h2 className="m-0 text-[26px] font-extrabold tracking-[-0.6px]">Sign in</h2>
             <p className="mt-1 text-[13px] text-t3">Caregiver &amp; admin access to the S-Care dashboard.</p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <span className="field-label" id="login-mode">Data</span>
+            <div className="seg flex w-full" role="group" aria-labelledby="login-mode">
+              <button type="button" className="flex-1" aria-pressed={mode === 'demo'} onClick={() => mode !== 'demo' && switchDataMode('demo')}>
+                Demo data
+              </button>
+              <button type="button" className="flex-1" aria-pressed={mode === 'live'} onClick={() => mode !== 'live' && switchDataMode('live')}>
+                Real bands
+              </button>
+            </div>
+            <p className="text-[12px] text-t3">
+              {mode === 'demo'
+                ? 'Simulated patients in this browser — try everything without a band.'
+                : 'Live readings from connected bands, stored by the S-Care server.'}
+            </p>
           </div>
 
           <div>
@@ -130,11 +154,21 @@ export function Login() {
             </button>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-lg w-full">
-            Sign in
-            <Icon name="chevron-right" size={16} strokeWidth={2.6} />
+          <button type="submit" className="btn btn-primary btn-lg w-full" disabled={submitting} aria-busy={submitting}>
+            {submitting ? 'Signing in…' : 'Sign in'}
+            {!submitting && <Icon name="chevron-right" size={16} strokeWidth={2.6} />}
           </button>
+          {submitting && mode === 'live' && (
+            <p className="-mt-3 text-center text-[12px] text-t3">The server may take up to a minute to wake up.</p>
+          )}
 
+          {mode === 'live' ? (
+            <div className="rounded-lg border border-line bg-card p-4 text-[12px] text-t2">
+              <p className="font-bold">Real data accounts</p>
+              <p className="mt-1.5">Use the account your administrator created. Demo accounts don’t work here.</p>
+              <p className="mt-1.5 text-t3">Server: <span className="font-mono">{API_URL}</span></p>
+            </div>
+          ) : (
           <div className="rounded-lg border border-line bg-card p-4">
             <p className="text-[12px] font-bold text-t2">Demo accounts</p>
             <div className="mt-2.5 flex flex-col gap-2">
@@ -158,6 +192,7 @@ export function Login() {
               ))}
             </div>
           </div>
+          )}
           <p className="text-center text-[12px] leading-relaxed text-t3">
             Accounts are provisioned by your facility administrator. No open sign-up.
             <br />

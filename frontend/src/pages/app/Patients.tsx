@@ -112,8 +112,8 @@ export function Patients() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 font-mono text-[12px] text-t2">{p.deviceId ?? '—'}</td>
-                    <td className={`px-3 py-2.5 text-right font-bold tabular-nums ${device && device.battery <= t.batteryWarn ? 'text-amber' : 'text-t2'}`}>
-                      {device ? `${Math.round(device.battery)}%` : '—'}
+                    <td className={`px-3 py-2.5 text-right font-bold tabular-nums ${device?.battery != null && device.battery <= t.batteryWarn ? 'text-amber' : 'text-t2'}`}>
+                      {device?.battery != null ? `${Math.round(device.battery)}%` : '—'}
                     </td>
                     <td className="px-4 py-2.5 text-right text-[12px] text-t3">
                       {device ? (device.online ? 'Live' : timeAgo(device.lastSeen, now)) : '—'}

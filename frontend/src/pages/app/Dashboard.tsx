@@ -4,7 +4,7 @@ import { useAppActions } from '../../components/app/actions-context'
 import { Sparkline } from '../../components/charts/Sparkline'
 import { Icon, type IconName } from '../../components/Icon'
 import { Avatar, LivePill, SectionHeader, StatusChip } from '../../components/ui'
-import { patientStatus, sortAlerts, useNow, useSim } from '../../data/store'
+import { patientStatus, sim, sortAlerts, useNow, useSim } from '../../data/store'
 import { ALERT_TYPE_LABEL, isActive, timeAgo } from '../../lib/format'
 import type { PatientStatus } from '../../lib/types'
 
@@ -144,7 +144,7 @@ export function Dashboard() {
                   <span className="flex items-center justify-between gap-1.5 border-t border-hair pt-2.5 text-[13px] font-bold tabular-nums">
                     <span className="flex items-center gap-1"><Icon name="heart" size={12} className="text-hr" />{worn ? v?.hr : '—'}<u className="text-[10px] font-semibold text-t3 no-underline">bpm</u></span>
                     <span className="flex items-center gap-1"><Icon name="drop" size={12} className="text-spo2" />{worn ? v?.spo2 : '—'}<u className="text-[10px] font-semibold text-t3 no-underline">%</u></span>
-                    <span className="flex items-center gap-1"><Icon name="battery" size={12} className="text-t3" />{device ? Math.round(device.battery) : '—'}<u className="text-[10px] font-semibold text-t3 no-underline">%</u></span>
+                    <span className="flex items-center gap-1"><Icon name="battery" size={12} className="text-t3" />{device?.battery != null ? Math.round(device.battery) : '—'}<u className="text-[10px] font-semibold text-t3 no-underline">%</u></span>
                   </span>
                 </Link>
               )
@@ -182,7 +182,7 @@ export function Dashboard() {
               </button>
               <button type="button" className="btn btn-danger h-[46px]" onClick={() => simulateAlert()}>
                 <Icon name="bell" size={17} />
-                Simulate Alert
+                {sim.kind === 'live' ? 'Raise Alert' : 'Simulate Alert'}
               </button>
             </div>
           </section>

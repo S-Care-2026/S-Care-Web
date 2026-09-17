@@ -34,7 +34,8 @@ export interface Device {
   id: string
   label: string
   patientId: string | null
-  battery: number
+  /** Percent; null until a real band has reported its status. */
+  battery: number | null
   charging: boolean
   worn: boolean
   signal: number
@@ -121,7 +122,7 @@ export interface Thresholds {
   sustainSeconds: number
 }
 
-export type Role = 'admin' | 'caregiver'
+export type Role = 'admin' | 'caregiver' | 'family'
 
 export interface User {
   id: string
@@ -129,4 +130,5 @@ export interface User {
   name: string
   role: Role
   zone: string
+  facilityId?: string
 }

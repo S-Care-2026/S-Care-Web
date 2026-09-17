@@ -38,6 +38,9 @@ export interface VitalBuffers {
 export interface SimState {
   now: number
   running: boolean
+  /** Real data only: false until the first snapshot arrives from the server. */
+  ready?: boolean
+  facilityName?: string
   patients: Patient[]
   devices: Device[]
   vitals: Record<string, Vitals>
@@ -360,7 +363,8 @@ export function createSimulator() {
       let dev = d
       if (dev.online) {
         const drain = dev.worn ? rand(0.01, 0.03) : 0
-        const battery = dev.charging ? Math.min(100, dev.battery + 0.4) : Math.max(0, dev.battery - drain)
+        const level = dev.battery ?? 100
+        const battery = dev.charging ? Math.min(100, level + 0.4) : Math.max(0, level - drain)
         dev = { ...dev, battery, lastSeen: now }
         if (dev.configAcked < dev.configVersion && Math.random() < 0.5) dev = { ...dev, configAcked: dev.configVersion }
         if (battery <= 0) dev = { ...dev, online: false, worn: false }
@@ -417,11 +421,11 @@ export function createSimulator() {
         if (!activeBattery) {
           raise(buildAlert({ ...s, alerts }, {
             type: 'low_battery', severity, source: 'rules', patientId: patient.id, deviceId: dev.id,
-            details: `Band battery at ${Math.round(dev.battery)}%.`,
+            details: `Band battery at ${Math.round(dev.battery ?? 0)}%.`,
           }))
         } else if (severity === 'warning' && activeBattery.severity === 'info') {
           alerts = alerts.map((a) => a.id === activeBattery.id
-            ? { ...a, severity, events: [...a.events, { at: now, kind: 'escalated', text: `Escalated to warning — battery at ${Math.round(dev.battery)}%` }] }
+            ? { ...a, severity, events: [...a.events, { at: now, kind: 'escalated', text: `Escalated to warning — battery at ${Math.round(dev.battery ?? 0)}%` }] }
             : a)
         }
       }

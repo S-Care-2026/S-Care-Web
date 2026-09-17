@@ -48,7 +48,8 @@ export function tempLevel(temp: number | null): Level {
   return 'normal'
 }
 
-export function batteryLevel(battery: number, t: Thresholds): Level {
+export function batteryLevel(battery: number | null, t: Thresholds): Level {
+  if (battery == null) return 'normal'
   if (battery <= t.batteryCrit) return 'critical'
   if (battery <= t.batteryWarn) return 'warning'
   return 'normal'

@@ -16,6 +16,24 @@ export function PairDeviceModal({ open, onClose, onPaired }: { open: boolean; on
 }
 
 function PairFlow({ onClose, onPaired }: { onClose: () => void; onPaired: (patientId: string) => void }) {
+  if (sim.kind === 'live') return <LivePairingNotice onClose={onClose} />
+  return <DemoPairFlow onClose={onClose} onPaired={onPaired} />
+}
+
+function LivePairingNotice({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="flex flex-col gap-4 p-5 text-[13px] text-t2">
+      <p>Pairing a band from the dashboard isn’t available with real data yet.</p>
+      <p>
+        An administrator registers the band in the <span className="font-mono">devices</span> table and assigns it to a patient in the database. It then
+        appears here as soon as it sends its first reading.
+      </p>
+      <button type="button" className="btn btn-primary self-end" onClick={onClose}>Got it</button>
+    </div>
+  )
+}
+
+function DemoPairFlow({ onClose, onPaired }: { onClose: () => void; onPaired: (patientId: string) => void }) {
   const state = useSim()
   const toast = useToast()
   const [step, setStep] = useState<'scan' | 'assign'>('scan')
@@ -39,8 +57,8 @@ function PairFlow({ onClose, onPaired }: { onClose: () => void; onPaired: (patie
         ? `${uid} is already registered.`
         : null
 
-  const submit = () => {
-    const result = sim.pair({
+  const submit = async () => {
+    const result = await sim.pair({
       deviceId: uid,
       existingPatientId: mode === 'existing' ? existingId : undefined,
       newPatient: mode === 'new' ? { name, age, sex, room, zone } : undefined,

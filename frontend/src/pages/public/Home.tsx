@@ -3,7 +3,7 @@ import { useAuth } from '../../auth/context'
 import { Sparkline } from '../../components/charts/Sparkline'
 import { Icon, type IconName } from '../../components/Icon'
 import { LivePill } from '../../components/ui'
-import { useSim } from '../../data/store'
+import { useDemoSim } from '../../data/store'
 import { isActive } from '../../lib/format'
 
 const FEATURES: { icon: IconName; title: string; body: string }[] = [
@@ -21,7 +21,7 @@ const FLOW: { icon: IconName; title: string; body: string }[] = [
 ]
 
 function WardPreview() {
-  const state = useSim()
+  const state = useDemoSim()
   const active = state.alerts.filter((a) => isActive(a.status))
   const fall = active.find((a) => a.type === 'fall')
   const worn = state.patients.filter((p) => {

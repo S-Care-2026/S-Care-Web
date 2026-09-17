@@ -28,12 +28,14 @@ export function MapPage() {
   const state = useSim()
   const [selected, setSelected] = useState<string | null>(null)
 
+  // Real facilities may use zone names other than the four wings drawn here: place those in the first wing.
+  const wingOf = (zone: string): Zone => (zone in WINGS ? (zone as Zone) : 'North Wing')
   const byZone = new Map<Zone, string[]>()
-  for (const p of state.patients) byZone.set(p.zone, [...(byZone.get(p.zone) ?? []), p.id])
+  for (const p of state.patients) byZone.set(wingOf(p.zone), [...(byZone.get(wingOf(p.zone)) ?? []), p.id])
 
   const markers = state.patients.map((p) => {
-    const wing = WINGS[p.zone]
-    const ids = byZone.get(p.zone)!
+    const wing = WINGS[wingOf(p.zone)]
+    const ids = byZone.get(wingOf(p.zone))!
     const i = ids.indexOf(p.id)
     const cols = 3
     const x = wing.x + 70 + (i % cols) * ((wing.w - 140) / (cols - 1))
@@ -171,7 +173,7 @@ function SelectedPatient({ patientId, onClear }: { patientId: string; onClear: (
         {[
           { label: 'HR', value: worn ? v?.hr : null, unit: 'bpm' },
           { label: 'SpO₂', value: worn ? v?.spo2 : null, unit: '%' },
-          { label: 'Battery', value: device ? Math.round(device.battery) : null, unit: '%' },
+          { label: 'Battery', value: device?.battery != null ? Math.round(device.battery) : null, unit: '%' },
         ].map((s) => (
           <div key={s.label} className="rounded-md border border-hair bg-elev px-2 py-2">
             <span className="block text-[10px] font-bold text-t3">{s.label}</span>

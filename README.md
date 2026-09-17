@@ -168,25 +168,34 @@ cd backend
 cp .env.example .env          # Configure your environment variables
 npm install
 npm run migrate               # Create/update the Postgres schema (uses DATABASE_URL_UNPOOLED)
-npm run db:seed               # Optional: load demo data — development databases only
+npm run db:seed               # Optional: demo data + the "S-Care Test Lab" facility with band SC-DEV-101 — development databases only
+npm run db:create-user -- --email you@example.org --name "Your Name" --role admin --facility "S-Care Test Lab"
 npm run dev                   # Starts on http://localhost:3001
 ```
 
-The backend runs in demo mode with random generated data — no database connection required for development.
+The backend subscribes to the MQTT broker and stores every reading: alerts in PostgreSQL, samples in InfluxDB, the latest reading per band in Redis. `db:create-user` takes the password from `NEW_USER_PASSWORD`, or generates one and prints it once.
+
+Check the whole path with a simulated band: `BAND_PASSWORD=… BACKEND_URL=http://localhost:3001 API_EMAIL=… API_PASSWORD=… npm run test:band`.
 
 #### Available API Endpoints
 
+Everything except `/api/health` and `/api/auth/login` needs `Authorization: Bearer <token>` from the login response. Data is limited to the signed-in user's facility (and, for family accounts, their patients).
+
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/health` | Health check |
-| `GET` | `/api/dashboard` | Aggregated dashboard data |
-| `GET` | `/api/alerts` | List all alerts |
-| `GET` | `/api/alerts/stats` | Alert statistics |
-| `POST` | `/api/alerts` | Create new alert |
-| `GET` | `/api/devices` | List all devices |
-| `GET` | `/api/devices/:id` | Device detail + health history |
-| `GET` | `/api/devices/:id/health` | 24h health readings |
-| `POST` | `/api/devices/scan` | Register device via QR |
+| `GET` | `/api/health` | Health check: MQTT connection and which stores are configured |
+| `POST` | `/api/auth/login` | `{ email, password }` → `{ token, user }` (token valid 12 h) |
+| `GET` | `/api/auth/me` | The signed-in user |
+| `GET` | `/api/facility/snapshot` | Patients, bands, latest vitals, 30-min sample buffers, alerts, contacts, thresholds — what the dashboard polls |
+| `PUT` | `/api/facility/thresholds` | Facility default thresholds *(admin)* |
+| `GET` | `/api/patients/:id/history?vital=hr\|spo2&range=1h\|6h\|24h\|7d` | Chart buckets from InfluxDB |
+| `PUT` | `/api/patients/:id/thresholds` | Per-patient override; `{}` clears it *(admin)* |
+| `POST` | `/api/patients/:id/contacts` | Add an emergency contact (republishes the band's config) |
+| `PATCH` / `DELETE` | `/api/contacts/:id` | Change SOS/fall notifications, or remove |
+| `POST` | `/api/contacts/:id/move` | `{ dir: -1 \| 1 }` — reorder |
+| `POST` | `/api/alerts` | Raise an alert by hand (`{ patientId, type, notes }`) |
+| `POST` | `/api/alerts/:id/acknowledge` · `/resolve` · `/cancel` | Handle an alert |
+| `GET` | `/api/live/devices`, `/api/live/devices/:uid`, `/api/live/events` | Raw latest MQTT data, for debugging |
 
 ### 3. Run the Frontend
 
@@ -196,7 +205,10 @@ npm install
 npm run dev                   # Starts on http://localhost:5173
 ```
 
-Until real bands are connected, the dashboard runs on an in-browser simulator — live vitals, the alert rule engine, the fall countdown and QR pairing all work without the backend. Sign in with `caregiver@scare.demo` / `demo1234` or `admin@scare.demo` / `admin1234`; see [`frontend/README.md`](frontend/README.md) for things to try.
+The dashboard has two data sources, chosen on the sign-in page or in **Settings → Data source** (switching signs you out):
+
+- **Demo data** — an in-browser simulator: live vitals, the alert rule engine, the fall countdown and QR pairing all work without the backend. Sign in with `caregiver@scare.demo` / `demo1234` or `admin@scare.demo` / `admin1234`; see [`frontend/README.md`](frontend/README.md) for things to try.
+- **Real bands** — data from the backend at `VITE_API_URL` (default `http://localhost:3001`; see `frontend/.env.example`). Sign in with an account made by `npm run db:create-user`.
 
 ### 4. Run with Docker (Backend)
 
@@ -219,6 +231,12 @@ NODE_ENV=development
 DATABASE_URL=postgresql://user:password@ep-xxx-pooler.region.aws.neon.tech/scare_db?sslmode=require
 DATABASE_URL_UNPOOLED=postgresql://user:password@ep-xxx.region.aws.neon.tech/scare_db?sslmode=require
 JWT_SECRET=your_jwt_secret_here
+
+# Redis (Upstash, TCP URL) and InfluxDB Cloud Serverless — see backend/.env.example
+REDIS_URL=rediss://default:your_password@your-db-name.upstash.io:6379
+INFLUX_HOST=https://your-region.aws.cloud2.influxdata.com
+INFLUX_TOKEN=your_influx_api_token
+INFLUX_DATABASE=scare_raw
 
 # MQTT broker the wearables publish to — the backend subscribes as a client
 MQTT_BROKER_URL=mqtts://broker.example.com:8883

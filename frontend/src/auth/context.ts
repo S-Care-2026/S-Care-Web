@@ -3,7 +3,8 @@ import type { User } from '../lib/types'
 
 export interface AuthValue {
   user: User | null
-  login: (email: string, password: string, remember: boolean) => string | null
+  /** Resolves to an error message, or null when signed in. */
+  login: (email: string, password: string, remember: boolean) => Promise<string | null>
   logout: () => void
 }
 

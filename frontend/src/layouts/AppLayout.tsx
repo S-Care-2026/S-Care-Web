@@ -8,7 +8,7 @@ import { SimulateAlertModal } from '../components/app/SimulateAlertModal'
 import { Icon, type IconName } from '../components/Icon'
 import { useToast } from '../components/toast-context'
 import { AlertTypeIcon, Avatar, Brand, LivePill } from '../components/ui'
-import { sim, sortAlerts, useNow, useSim } from '../data/store'
+import { onActionError, sim, sortAlerts, useNow, useSim } from '../data/store'
 import { ALERT_TYPE_LABEL, isActive, timeAgo } from '../lib/format'
 import { setTheme, useTheme } from '../lib/theme'
 
@@ -55,6 +55,10 @@ export function AppLayout() {
   useEffect(
     () =>
       sim.onEvent((e) => {
+        if (e.kind === 'error') {
+          toast({ tone: 'critical', title: 'Can’t load real data', body: e.message })
+          return
+        }
         const a = e.alert
         if (a.severity === 'info') return
         const patient = sim.getState().patients.find((p) => p.id === a.patientId)
@@ -68,6 +72,9 @@ export function AppLayout() {
     [toast],
   )
 
+  useEffect(() => onActionError((message) => toast({ tone: 'critical', title: 'That didn’t go through', body: message })), [toast])
+
+  const live = sim.kind === 'live'
   const active = state.alerts.filter((a) => isActive(a.status))
 
   const sidebar = (
@@ -104,7 +111,7 @@ export function AppLayout() {
       <div className="border-t border-line p-3">
         <button type="button" className="btn btn-outline btn-sm mb-3 w-full" onClick={() => actions.simulateAlert()}>
           <Icon name="bell" size={14} />
-          Simulate alert
+          {live ? 'Raise alert' : 'Simulate alert'}
         </button>
         <div className="flex items-center gap-2.5">
           <span className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-green bg-green-surf text-[12px] font-extrabold text-green">
@@ -151,15 +158,21 @@ export function AppLayout() {
               <Icon name="menu" size={18} />
             </button>
             <h1 className="m-0 flex-1 text-[19px] font-extrabold tracking-[-0.4px]">{title}</h1>
-            <button
-              type="button"
-              onClick={() => sim.setRunning(!state.running)}
-              className="rounded"
-              title={state.running ? 'Pause the simulated data stream' : 'Resume the simulated data stream'}
-              aria-label={state.running ? 'Pause live data' : 'Resume live data'}
-            >
-              <LivePill running={state.running} />
-            </button>
+            {live ? (
+              <span title={state.running ? `Connected to the S-Care server${state.facilityName ? ` · ${state.facilityName}` : ''}` : 'Can’t reach the S-Care server — retrying'}>
+                {state.running ? <LivePill running label="LIVE" /> : <span className="chip bg-slate text-on-slate">{state.ready ? 'RECONNECTING' : 'CONNECTING'}</span>}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => sim.setRunning(!state.running)}
+                className="rounded"
+                title={state.running ? 'Pause the simulated data stream' : 'Resume the simulated data stream'}
+                aria-label={state.running ? 'Pause live data' : 'Resume live data'}
+              >
+                <LivePill running={state.running} />
+              </button>
+            )}
             <AlertBell onOpen={setAlertId} />
             <button
               type="button"

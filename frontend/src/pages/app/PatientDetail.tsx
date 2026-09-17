@@ -8,9 +8,10 @@ import { TimeSeriesPanel, type Point, type Threshold } from '../../components/ch
 import { Icon } from '../../components/Icon'
 import { useToast } from '../../components/toast-context'
 import { Avatar, EmptyState, LivePill, StatusChip } from '../../components/ui'
-import { history, RANGES, type RangeKey } from '../../data/history'
+import { RANGES, type RangeKey } from '../../data/history'
 import { formatPhone, thresholdsFor, type Scenario } from '../../data/simulator'
-import { patientStatus, sim, useNow, useSim } from '../../data/store'
+import { patientStatus, perform, sim, useNow, useSim } from '../../data/store'
+import { useVitalHistory } from '../../data/useVitalHistory'
 import { hrLevel, spo2Level, tempLevel, validateThresholds, type Level } from '../../lib/thresholds'
 import { timeAgo } from '../../lib/format'
 import type { Thresholds, VitalKey } from '../../lib/types'
@@ -48,6 +49,9 @@ export function PatientDetail() {
   const state = useSim()
   const patient = state.patients.find((p) => p.id === patientId)
 
+  if (!patient && state.ready === false) {
+    return <p className="card mx-auto max-w-[480px] p-6 text-center text-[13px] text-t2">Loading patient…</p>
+  }
   if (!patient) {
     return (
       <EmptyState
@@ -91,10 +95,8 @@ function PatientView({ patientId }: { patientId: string }) {
     return b.length ? b.reduce((s, x) => s + x.v, 0) / b.length : VITALS[vital].typical
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vital, minuteBucket, patientId])
-  const historyPoints = useMemo<Point[]>(
-    () => history(patientId, vital, range, minuteBucket * 60_000, typical).map((b) => ({ t: b.t, v: b.mean, lo: b.min, hi: b.max })),
-    [patientId, vital, range, minuteBucket, typical],
-  )
+  const vitalHistory = useVitalHistory(patientId, vital, range, minuteBucket, typical)
+  const live = sim.kind === 'live'
 
   const patientAlerts = state.alerts
     .filter((a) => a.patientId === patientId)
@@ -119,7 +121,7 @@ function PatientView({ patientId }: { patientId: string }) {
         <StatusChip status={status} />
         <button type="button" className="btn btn-danger btn-sm" onClick={() => simulateAlert(patientId)}>
           <Icon name="bell" size={14} />
-          Simulate alert
+          {live ? 'Raise alert' : 'Simulate alert'}
         </button>
       </div>
 
@@ -175,7 +177,7 @@ function PatientView({ patientId }: { patientId: string }) {
             live={!frozen}
             alarm={level === 'critical'}
             height={200}
-            source={`Source: ${device?.label ?? 'S-Care Band'} (${device?.id ?? '—'}) · every 2 s · last 5 min`}
+            source={`Source: ${device?.label ?? 'S-Care Band'} (${device?.id ?? '—'}) · ${live ? 'as reported by the band · last 30 min' : 'every 2 s · last 5 min'}`}
             emptyText={!device ? 'No band paired.' : !device.online ? `Band offline — last seen ${timeAgo(device.lastSeen, now)}.` : 'Band not worn — no readings.'}
           />
 
@@ -196,14 +198,25 @@ function PatientView({ patientId }: { patientId: string }) {
             unit={spec.unit}
             color={spec.color}
             fill={spec.fill}
-            points={historyPoints}
+            points={vitalHistory.points}
             thresholds={thresholdLines(vital, t)}
             softMin={spec.softMin}
             softMax={spec.softMax}
             decimals={spec.decimals}
             timeFormat={range === '7d' ? 'days' : 'minutes'}
             height={170}
-            source={`Source: InfluxDB ${range === '1h' ? 'scare_raw' : 'scare_1m'} (simulated) · ${RANGES.find((r) => r.key === range)!.stepMs / 60_000} min buckets`}
+            source={
+              live
+                ? `Source: InfluxDB scare_raw · ${RANGES.find((r) => r.key === range)!.stepMs / 60_000} min buckets${vitalHistory.failed ? ' · couldn’t refresh' : ''}`
+                : `Source: InfluxDB ${range === '1h' ? 'scare_raw' : 'scare_1m'} (simulated) · ${RANGES.find((r) => r.key === range)!.stepMs / 60_000} min buckets`
+            }
+            emptyText={
+              vital === 'temp' && live
+                ? 'The band has no temperature sensor.'
+                : vitalHistory.loading
+                  ? 'Loading history…'
+                  : 'No readings in this period yet.'
+            }
           />
 
           <section className="flex flex-col gap-2.5">
@@ -220,7 +233,7 @@ function PatientView({ patientId }: { patientId: string }) {
 
         <aside className="flex flex-col gap-4">
           <BandCard patientId={patientId} />
-          <DriveCard patientId={patientId} />
+          {!live && <DriveCard patientId={patientId} />}
           <ContactsCard patientId={patientId} />
           <ThresholdsCard patientId={patientId} />
           {patient.notes && (
@@ -271,7 +284,8 @@ function BandCard({ patientId }: { patientId: string }) {
       </section>
     )
   }
-  const batteryTone = device.battery <= t.batteryCrit ? 'bg-red' : device.battery <= t.batteryWarn ? 'bg-amber' : 'bg-green'
+  const battery = device.battery
+  const batteryTone = battery == null ? 'bg-slate' : battery <= t.batteryCrit ? 'bg-red' : battery <= t.batteryWarn ? 'bg-amber' : 'bg-green'
   const synced = device.configAcked >= device.configVersion
 
   return (
@@ -290,10 +304,10 @@ function BandCard({ patientId }: { patientId: string }) {
       <div>
         <div className="mb-1 flex justify-between text-[12px]">
           <span className="font-semibold text-t2">Battery</span>
-          <b className="tabular-nums">{Math.round(device.battery)}%</b>
+          <b className="tabular-nums">{battery == null ? 'Not reported' : `${Math.round(battery)}%`}</b>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-elev" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(device.battery)} aria-label="Battery">
-          <div className={`h-full ${batteryTone}`} style={{ width: `${device.battery}%` }} />
+        <div className="h-2 overflow-hidden rounded-full bg-elev" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={battery == null ? undefined : Math.round(battery)} aria-label="Battery">
+          <div className={`h-full ${batteryTone}`} style={{ width: `${battery ?? 0}%` }} />
         </div>
       </div>
       <dl className="m-0 grid grid-cols-2 gap-x-3 gap-y-2 text-[12px]">
@@ -387,14 +401,15 @@ function ContactsCard({ patientId }: { patientId: string }) {
                 <span className="block text-[11px] text-t3">{c.relationship} · <span className="font-mono">{formatPhone(c.phone)}</span></span>
               </div>
               <div className="flex gap-0.5">
-                <button type="button" className="icon-btn h-7 w-7" disabled={i === 0} onClick={() => sim.moveContact(c.id, -1)} aria-label={`Move ${c.name} up`}><Icon name="arrow-up" size={13} /></button>
-                <button type="button" className="icon-btn h-7 w-7" disabled={i === contacts.length - 1} onClick={() => sim.moveContact(c.id, 1)} aria-label={`Move ${c.name} down`}><Icon name="arrow-down" size={13} /></button>
+                <button type="button" className="icon-btn h-7 w-7" disabled={i === 0} onClick={() => void perform(() => sim.moveContact(c.id, -1))} aria-label={`Move ${c.name} up`}><Icon name="arrow-up" size={13} /></button>
+                <button type="button" className="icon-btn h-7 w-7" disabled={i === contacts.length - 1} onClick={() => void perform(() => sim.moveContact(c.id, 1))} aria-label={`Move ${c.name} down`}><Icon name="arrow-down" size={13} /></button>
                 <button
                   type="button"
                   className="icon-btn h-7 w-7 hover:text-red"
-                  onClick={() => {
-                    sim.removeContact(c.id)
-                    toast({ tone: 'info', title: `Removed ${c.name}`, body: 'The band gets the new list on its next check-in.' })
+                  onClick={async () => {
+                    if (await perform(() => sim.removeContact(c.id))) {
+                      toast({ tone: 'info', title: `Removed ${c.name}`, body: 'The band gets the new list on its next check-in.' })
+                    }
                   }}
                   aria-label={`Remove ${c.name}`}
                 >
@@ -404,11 +419,11 @@ function ContactsCard({ patientId }: { patientId: string }) {
             </div>
             <div className="mt-2 flex gap-4 pl-7 text-[11px] text-t2">
               <label className="flex items-center gap-1.5" htmlFor={`sos-${c.id}`}>
-                <input id={`sos-${c.id}`} type="checkbox" checked={c.notifyOnSos} onChange={(e) => sim.updateContact(c.id, { notifyOnSos: e.target.checked })} className="accent-[var(--sc-green)]" />
+                <input id={`sos-${c.id}`} type="checkbox" checked={c.notifyOnSos} onChange={(e) => void perform(() => sim.updateContact(c.id, { notifyOnSos: e.target.checked }))} className="accent-[var(--sc-green)]" />
                 SOS
               </label>
               <label className="flex items-center gap-1.5" htmlFor={`fall-${c.id}`}>
-                <input id={`fall-${c.id}`} type="checkbox" checked={c.notifyOnFall} onChange={(e) => sim.updateContact(c.id, { notifyOnFall: e.target.checked })} className="accent-[var(--sc-green)]" />
+                <input id={`fall-${c.id}`} type="checkbox" checked={c.notifyOnFall} onChange={(e) => void perform(() => sim.updateContact(c.id, { notifyOnFall: e.target.checked }))} className="accent-[var(--sc-green)]" />
                 Falls
               </label>
             </div>
@@ -418,10 +433,10 @@ function ContactsCard({ patientId }: { patientId: string }) {
       {adding ? (
         <form
           className="flex flex-col gap-2.5 border-t border-hair pt-3"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault()
             if (!name.trim() || !relationship.trim()) return setError('Enter a name and relationship.')
-            const err = sim.addContact({ patientId, name: name.trim(), relationship: relationship.trim(), phone: phone.replace(/[\s()-]/g, ''), notifyOnSos: true, notifyOnFall: true })
+            const err = await sim.addContact({ patientId, name: name.trim(), relationship: relationship.trim(), phone: phone.replace(/[\s()-]/g, ''), notifyOnSos: true, notifyOnFall: true })
             if (err) return setError(err)
             toast({ tone: 'success', title: `Added ${name.trim()}`, body: 'Syncing to the band.' })
             setName('')
@@ -477,7 +492,7 @@ function ThresholdsCard({ patientId }: { patientId: string }) {
       {editing ? (
         <form
           className="flex flex-col gap-2.5"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault()
             const next: Partial<Thresholds> = {}
             for (const f of OVERRIDE_FIELDS) {
@@ -487,7 +502,7 @@ function ThresholdsCard({ patientId }: { patientId: string }) {
             const merged = { ...t, ...next }
             const err = validateThresholds(merged)
             if (err) return setError(err)
-            sim.setOverride(patientId, next)
+            if (!(await perform(() => sim.setOverride(patientId, next)))) return
             toast({ tone: 'success', title: 'Thresholds saved', body: 'Rules use the new values from the next reading.' })
             setEditing(false)
             setError(null)
@@ -536,13 +551,13 @@ function ThresholdsCard({ patientId }: { patientId: string }) {
                 Customise
               </button>
               {override && (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => { sim.setOverride(patientId, undefined); toast({ tone: 'info', title: 'Back to facility defaults' }) }}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { if (await perform(() => sim.setOverride(patientId, undefined))) toast({ tone: 'info', title: 'Back to facility defaults' }) }}>
                   Use defaults
                 </button>
               )}
             </div>
           ) : (
-            <p className="text-[11px] text-t3">Only admins can change thresholds. Sign in as the demo admin to try it.</p>
+            <p className="text-[11px] text-t3">Only admins can change thresholds.{sim.kind === 'demo' ? ' Sign in as the demo admin to try it.' : ''}</p>
           )}
         </>
       )}

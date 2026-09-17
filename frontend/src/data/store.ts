@@ -1,13 +1,47 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { createLiveSource } from './live'
+import { getDataMode } from './mode'
 import { createSimulator, thresholdsFor, type SimState } from './simulator'
+import type { DataSource } from './source'
 import { batteryLevel, hrLevel, spo2Level, worst } from '../lib/thresholds'
 import { isActive } from '../lib/format'
 import type { Alert, Patient, PatientStatus } from '../lib/types'
 
-export const sim = createSimulator()
+/** The public home page always previews simulated data, whatever the dashboard uses. */
+export const demoSim: DataSource = { kind: 'demo', ...createSimulator() }
+
+/** The dashboard's data: the simulator, or real bands through the server (Settings → Data source). */
+export const sim: DataSource = getDataMode() === 'live' ? createLiveSource() : demoSim
 
 export function useSim(): SimState {
   return useSyncExternalStore(sim.subscribe, sim.getState, sim.getState)
+}
+
+export function useDemoSim(): SimState {
+  return useSyncExternalStore(demoSim.subscribe, demoSim.getState, demoSim.getState)
+}
+
+/**
+ * Runs a data change and reports a failure (real data: the server refused it or can't be reached)
+ * through the source's error events. Returns true when it went through.
+ */
+export async function perform(action: () => unknown): Promise<boolean> {
+  try {
+    await action()
+    return true
+  } catch (err) {
+    errorListeners.forEach((l) => l(err instanceof Error ? err.message : 'Something went wrong.'))
+    return false
+  }
+}
+
+const errorListeners = new Set<(message: string) => void>()
+
+export function onActionError(listener: (message: string) => void) {
+  errorListeners.add(listener)
+  return () => {
+    errorListeners.delete(listener)
+  }
 }
 
 const wallClock = () => Date.now()
