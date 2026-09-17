@@ -213,7 +213,9 @@ Create a `.env` file in the `backend/` directory:
 ```env
 PORT=3001
 NODE_ENV=development
-DATABASE_URL=postgresql://user:password@localhost:5432/scare_db
+# Neon: pooled URL for the API, direct URL for migrations
+DATABASE_URL=postgresql://user:password@ep-xxx-pooler.region.aws.neon.tech/scare_db?sslmode=require
+DATABASE_URL_UNPOOLED=postgresql://user:password@ep-xxx.region.aws.neon.tech/scare_db?sslmode=require
 JWT_SECRET=your_jwt_secret_here
 
 # MQTT broker the wearables publish to — the backend subscribes as a client

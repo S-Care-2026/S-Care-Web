@@ -1,13 +1,7 @@
-# ──────────────────────────────────────────────────────────────
-# S-Care — Render Blueprint
-# https://render.com/docs/blueprint-spec
-#
-# The MQTT broker is HiveMQ Cloud (external), so it is not deployed here.
-# Values marked `sync: false` are asked for once, when the Blueprint is created.
-# ──────────────────────────────────────────────────────────────
+# S-Care — Render Blueprint (https://render.com/docs/blueprint-spec)
+# External: Neon (Postgres), HiveMQ Cloud (MQTT), InfluxDB Cloud Serverless.
 
 services:
-  # ── Frontend: React + Vite, served by `vite preview` ──
   - type: web
     name: s-care-web
     runtime: node
@@ -21,7 +15,6 @@ services:
       - key: NODE_VERSION
         value: "22"
 
-  # ── Backend: Express REST API + MQTT subscriber (one process) ──
   - type: web
     name: s-care-backend
     runtime: docker
@@ -41,7 +34,19 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
-      # HiveMQ Cloud: mqtts://<cluster-id>.s1.eu.hivemq.cloud:8883
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: s-care-redis
+          property: connectionString
+      - key: INFLUX_HOST
+        sync: false
+      - key: INFLUX_TOKEN
+        sync: false
+      - key: INFLUX_DATABASE
+        value: scare_raw
+      - key: INFLUX_DATABASE_1M
+        value: scare_1m
       - key: MQTT_BROKER_URL
         sync: false
       - key: MQTT_USERNAME
@@ -50,3 +55,9 @@ services:
         sync: false
       - key: MQTT_TOPIC_PREFIX
         value: scare/devices
+
+  - type: keyvalue
+    name: s-care-redis
+    region: singapore
+    plan: free
+    ipAllowList: [] # private network only

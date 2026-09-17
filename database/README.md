@@ -127,7 +127,8 @@ Example `vitals` payload — short keys, in case telemetry ever travels over the
 Requires **PostgreSQL 15+** (tested on 16 and 17) with the `citext` and `btree_gist` extensions, which ship with PostgreSQL.
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/postgres/001_initial_schema.sql
+# migrations use the direct (unpooled) connection — on Neon, DATABASE_URL_UNPOOLED
+psql "$DATABASE_URL_UNPOOLED" -v ON_ERROR_STOP=1 -f database/postgres/001_initial_schema.sql
 
 # tests: run against a throwaway database, never production
 createdb scare_test
