@@ -1,6 +1,6 @@
 # S-Care database design
 
-> **Status: proposal.** The backend still serves generated demo data, so nothing reads these stores yet. The PostgreSQL part is concrete: [`postgres/001_initial_schema.sql`](postgres/001_initial_schema.sql), with a test script in [`postgres/tests/`](postgres/tests/) that passes on PostgreSQL 16, 17 and 18. The InfluxDB and Redis parts are specified here and get built along with the MQTT subscriber.
+> **Status: in use.** The backend's MQTT subscriber writes alerts to PostgreSQL, samples to InfluxDB (`scare_raw`) and the latest reading per band to Redis; the dashboard's "Real bands" mode reads them through the API. Not built yet: the 1-minute downsampling into `scare_1m`, nightly `daily_vital_summaries`, the notifier (push/SMS) and Redis pub/sub — the dashboard polls instead. The PostgreSQL part is concrete: [`postgres/001_initial_schema.sql`](postgres/001_initial_schema.sql), with a test script in [`postgres/tests/`](postgres/tests/) that passes on PostgreSQL 16, 17 and 18. The InfluxDB and Redis parts are specified here and get built along with the MQTT subscriber.
 
 Sized for today — **under 50 users and 100 bands** — and shaped so that 10× and 100× are additive steps, not a rewrite (see [Scaling path](#scaling-path)).
 

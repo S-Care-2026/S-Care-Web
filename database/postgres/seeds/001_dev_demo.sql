@@ -138,6 +138,9 @@ FROM (VALUES
   ('51000000-0000-4000-8000-000000000106', '50000000-0000-4000-8000-000000000106', '40000000-0000-4000-8000-000000000006')
 ) AS a (id, device_id, patient_id)
 JOIN patients p ON p.id = a.patient_id::uuid
+-- Skip rows that already exist: the facility trigger runs before ON CONFLICT, and a band moved
+-- to another facility since (002_test_lab.sql moves SC-DEV-101) would make it fail.
+WHERE NOT EXISTS (SELECT 1 FROM device_assignments x WHERE x.id = a.id::uuid)
 ON CONFLICT (id) DO NOTHING;
 
 
