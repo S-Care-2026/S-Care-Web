@@ -4,14 +4,15 @@
 //   BAND_USERNAME=... BAND_PASSWORD=... npm run test:mqtt-acl -- --strict
 //
 // "Required" checks (what the firmware needs) always fail the run when they fail.
-// "Isolation" checks (the band must not reach other bands) only warn by default: the
-// current HiveMQ plan grants permissions on all topics, so they can't pass yet.
-// Use --strict once the plan supports per-topic permissions.
+// "Isolation" checks (the band must not reach other bands) only warn by default; with
+// --strict they fail too. Band credentials limited to scare/devices/<band id>/# pass all six.
 //
 // Environment (shell or backend/.env — never put passwords in this file):
 //   BAND_USERNAME, BAND_PASSWORD   the band's own credential (required)
-//   BAND_UID                       band to test as (default SC-DEV-101)
+//   BAND_UID                       band to test as (default: BAND_USERNAME, since band credentials are named after the band)
 //   OTHER_UID                      another band it must not reach (default SC-DEV-102)
+//
+//   BAND_USERNAME=SCB-XXXXXXXXXX BAND_PASSWORD=... npm run test:mqtt-acl -- --strict
 //   MQTT_BROKER_URL                mqtts://<cluster>.s1.eu.hivemq.cloud:8883
 //   MQTT_TOPIC_PREFIX              default scare/devices
 //   MQTT_USERNAME, MQTT_PASSWORD   optional backend credential: if set, the script also
@@ -33,8 +34,8 @@ const WAIT_MS = 3_000;
 
 const brokerUrl = process.env.MQTT_BROKER_URL;
 const prefix = (process.env.MQTT_TOPIC_PREFIX || "scare/devices").replace(/\/+$/, "");
-const bandUid = process.env.BAND_UID || "SC-DEV-101";
-const otherUid = process.env.OTHER_UID || "SC-DEV-102";
+const bandUid = process.env.BAND_UID || process.env.BAND_USERNAME || "SC-DEV-101";
+const otherUid = process.env.OTHER_UID || (bandUid === "SC-DEV-102" ? "SC-DEV-103" : "SC-DEV-102");
 const band = { username: process.env.BAND_USERNAME, password: process.env.BAND_PASSWORD };
 const backend = { username: process.env.MQTT_USERNAME, password: process.env.MQTT_PASSWORD };
 
@@ -70,7 +71,16 @@ async function runOnFreshConnection(action) {
 
 function trySubscribe(topic) {
   return runOnFreshConnection(async (client) => {
-    const [granted] = await client.subscribeAsync(topic, { qos: 1 });
+    let granted;
+    try {
+      [granted] = await client.subscribeAsync(topic, { qos: 1 });
+    } catch (err) {
+      // mqtt.js rejects instead of returning a failure SUBACK (reason code 0x80 and up). It wraps
+      // the error in ErrorWithSubackPacket, which drops `code` but keeps the SUBACK as `packet`.
+      const reason = err.code ?? err.packet?.granted?.find((rc) => rc >= 0x80);
+      if (reason >= 0x80) return `denied (SUBACK 0x${reason.toString(16)})`;
+      throw err;
+    }
     if (granted.qos >= 0x80) return "denied (SUBACK 0x80)";
     await sleep(WAIT_MS); // some brokers disconnect shortly after granting
     return client.connected ? "allowed" : "denied (disconnected)";
@@ -171,6 +181,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`test-mqtt-acl: ${err.message}`);
+  console.error(`test-mqtt-acl: ${err.message || err.code || err}`);
   process.exitCode = 1;
 });
