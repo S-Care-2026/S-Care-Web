@@ -10,7 +10,8 @@
     "dev": "node --watch src/index.js",
     "migrate": "node scripts/migrate.js",
     "migrate:status": "node scripts/migrate.js status",
-    "db:seed": "node scripts/seed.js"
+    "db:seed": "node scripts/seed.js",
+    "test:mqtt-acl": "node scripts/test-mqtt-acl.js"
   },
   "dependencies": {
     "@influxdata/influxdb3-client": "^2.4.0",

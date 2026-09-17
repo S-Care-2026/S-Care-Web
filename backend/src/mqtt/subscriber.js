@@ -44,19 +44,31 @@ function subscriptions() {
   );
 }
 
+function sendReply(uid, replyTopic, body) {
+  if (!client || !replyTopic || !body) return;
+  const topic = `${topicPrefix()}/${uid}/${replyTopic}`;
+  client
+    .publishAsync(topic, JSON.stringify(body), { qos: 1 })
+    .catch((err) => log.error(`failed to publish ${topic}: ${err.message}`));
+}
+
 function onMessage(topic, payload) {
   const receivedAt = Date.now();
   state.messages_received++;
   state.last_message_at = new Date(receivedAt).toISOString();
 
+  let uid = null;
+  let handler = null;
+
   try {
     const prefix = `${topicPrefix()}/`;
     if (!topic.startsWith(prefix)) throw new PayloadError("unexpected topic");
 
-    const [uid, kind, ...rest] = topic.slice(prefix.length).split("/");
-    const handler = handlers[kind];
-    if (!handler || rest.length > 0) throw new PayloadError("unknown topic");
-    if (!DEVICE_UID_PATTERN.test(uid)) throw new PayloadError(`invalid device uid "${uid}"`);
+    const [topicUid, kind, ...rest] = topic.slice(prefix.length).split("/");
+    if (!handlers[kind] || rest.length > 0) throw new PayloadError("unknown topic");
+    if (!DEVICE_UID_PATTERN.test(topicUid)) throw new PayloadError(`invalid device uid "${topicUid}"`);
+    uid = topicUid;
+    handler = handlers[kind];
     if (payload.length > MAX_PAYLOAD_BYTES) throw new PayloadError(`payload of ${payload.length} bytes is too large`);
 
     let body;
@@ -69,11 +81,13 @@ function onMessage(topic, payload) {
       throw new PayloadError("payload must be a JSON object");
     }
 
-    handler.handle(uid, body, receivedAt, log);
+    const reply = handler.handle(uid, body, receivedAt, log);
+    sendReply(uid, handler.replyTopic, reply);
   } catch (err) {
     state.messages_rejected++;
     if (err instanceof PayloadError) {
       log.warn(`rejected ${topic}: ${err.message}`);
+      if (uid) sendReply(uid, handler.replyTopic, err.reply);
     } else {
       log.error(`failed to handle ${topic}: ${err.stack || err.message}`);
     }

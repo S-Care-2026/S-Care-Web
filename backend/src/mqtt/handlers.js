@@ -14,6 +14,12 @@
 //   ack       { "config_version": 3 }
 //
 // "ts" is optional everywhere; the arrival time is used when it's missing or implausible.
+//
+// Every events message that carries an event_id gets a reply on <prefix>/<uid>/event_ack (QoS 1):
+//   { "event_id": "e-000123", "status": "received", "received_at": "2026-09-17T08:00:00.000Z" }
+//   { "event_id": "e-000123", "status": "rejected", "error": "unknown event type \"fal\"" }
+// "received" is also sent for a duplicate, so the band stops retrying. A band that gets no
+// reply should resend the same event_id — the backend drops the repeat.
 
 import {
   recordConfigAck,
@@ -35,7 +41,13 @@ const NETWORKS = new Set(["wifi", "cellular"]);
 const LOCATION_SOURCES = new Set(["gps", "cell", "wifi"]);
 const MOTION_AXES = ["ax", "ay", "az", "gx", "gy", "gz"];
 
-export class PayloadError extends Error {}
+export class PayloadError extends Error {
+  // `reply`, when set, is sent back to the band so it knows the message was refused.
+  constructor(message, reply = null) {
+    super(message);
+    this.reply = reply;
+  }
+}
 
 function isNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
@@ -138,10 +150,14 @@ function handleLocation(uid, payload, receivedAt, log) {
 }
 
 function handleEvent(uid, payload, receivedAt, log) {
+  // Without an event_id there's nothing the band could match a reply to.
   if (typeof payload.event_id !== "string" || payload.event_id.length === 0) {
     throw new PayloadError('"event_id" is required so redeliveries can be ignored');
   }
-  if (!EVENT_TYPES.has(payload.type)) throw new PayloadError(`unknown event type "${payload.type}"`);
+  if (!EVENT_TYPES.has(payload.type)) {
+    const error = `unknown event type "${payload.type}"`;
+    throw new PayloadError(error, { event_id: payload.event_id, status: "rejected", error });
+  }
 
   const event = {
     event_id: payload.event_id,
@@ -151,9 +167,12 @@ function handleEvent(uid, payload, receivedAt, log) {
     received_at: new Date(receivedAt).toISOString(),
   };
 
+  // TODO: once events are written to Postgres, reply only after the transaction commits.
+  const reply = { event_id: event.event_id, status: "received", received_at: event.received_at };
+
   if (!recordEvent(uid, event, receivedAt)) {
     log.info(`${uid}: duplicate event ${event.event_id} ignored`);
-    return;
+    return reply;
   }
 
   const line = `${uid}: EVENT ${event.type} (event ${event.event_id}, incident ${event.incident_id})`;
@@ -162,6 +181,7 @@ function handleEvent(uid, payload, receivedAt, log) {
   } else {
     log.info(line);
   }
+  return reply;
 }
 
 function handleMotion(uid, payload, receivedAt, log) {
@@ -188,11 +208,13 @@ function handleAck(uid, payload, receivedAt, log) {
   log.info(`${uid}: acked config version ${payload.config_version}`);
 }
 
+// `replyTopic`: where a handler's return value (or a PayloadError's reply) is published.
+// It must not be one of these keys, or the backend would receive its own replies.
 export const handlers = {
   vitals: { qos: 0, handle: handleVitals },
   status: { qos: 0, handle: handleStatus },
   location: { qos: 0, handle: handleLocation },
-  events: { qos: 1, handle: handleEvent },
+  events: { qos: 1, handle: handleEvent, replyTopic: "event_ack" },
   motion: { qos: 1, handle: handleMotion },
   ack: { qos: 1, handle: handleAck },
 };

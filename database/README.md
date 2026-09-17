@@ -102,13 +102,15 @@ If the band goes silent mid-countdown, the backend opens the alert anyway — th
 | `scare/devices/{uid}/status` | band → broker | 0 | battery, charging, RSSI, network, worn |
 | `scare/devices/{uid}/location` | band → broker | 0 | lat/lon, accuracy, source |
 | `scare/devices/{uid}/events` | band → broker | 1 | `fall_detected`, `fall_cancelled`, `fall_confirmed`, `sos` — each with an `incident_id` |
+| `scare/devices/{uid}/event_ack` | broker → band | 1 | backend's reply to each event: `{"event_id", "status": "received" \| "rejected"}` — no reply within ~15 s means resend the same `event_id` |
 | `scare/devices/{uid}/motion` | band → broker | 1 | IMU window around a fall, same `incident_id` |
 | `scare/devices/{uid}/config` | broker → band | 1, retained | emergency-contact numbers + `config_version` |
 | `scare/devices/{uid}/ack` | band → broker | 1 | `{"config_version": n}` |
 
 - **QoS 0 for telemetry, QoS 1 for events.** A lost vitals sample is harmless; a lost SOS isn't. QoS 1 can deliver twice, so `alerts` has `UNIQUE (device_id, device_event_id)` and a replay does nothing.
+- **Events are confirmed by the backend, not just the broker.** A QoS 1 PUBACK only means HiveMQ has the message — it's sent even while the backend is down. The band waits for `event_ack`, resends the same `event_id` until it arrives (duplicates are dropped and confirmed again), and falls back to SMS if it never does.
 - **Contacts reach the band as retained config.** The SIM's SMS fallback never touches the backend, so the band must carry the numbers itself. It receives changes on its next connect even if it was asleep. `config_version` vs `config_acked_version` on `devices` lets the dashboard warn when a band is carrying stale numbers.
-- **Broker ACL:** a band may only publish under its own `scare/devices/{uid}/` and read its own `config`. Only the backend's account subscribes to all bands.
+- **Broker permissions:** one credential per band plus one for the backend — see [Broker permissions](#broker-permissions), including what the current HiveMQ plan can't enforce.
 - **Deep sleep vs. a persistent connection.** A band that sleeps between readings reconnects on every wake, which erodes MQTT's cost advantage. Keep wakes coarse (a minute of samples per upload), use a persistent session (`clean_start = false`) and TLS session resumption. Last Will messages can't detect a *graceful* sleep disconnect, so offline detection uses Redis deadlines instead.
 
 Example `vitals` payload — short keys, in case telemetry ever travels over the SIM:
@@ -119,6 +121,26 @@ Example `vitals` payload — short keys, in case telemetry ever travels over the
   "spo2": [98, 98, 97, 98, 98, 98],
   "q":    [92, 90, 95, 91, 93, 94] }
 ```
+
+### Broker permissions
+
+Target setup — needs a broker plan with per-topic permissions:
+
+| Credential | Publish | Subscribe |
+|---|---|---|
+| One per band (`{uid}` = its `device_uid`) | `scare/devices/{uid}/vitals`, `…/status`, `…/location`, `…/events`, `…/motion`, `…/ack` | `scare/devices/{uid}/config`, `scare/devices/{uid}/event_ack` |
+| Backend | `scare/devices/+/event_ack`; `scare/devices/+/config` (retained) once config push is built | `scare/devices/+/vitals`, `+/status`, `+/location`, `+/events`, `+/motion`, `+/ack` — these six are exactly what the subscriber uses; `scare/devices/#` also works but is broader |
+
+- The backend never publishes on band telemetry topics, and no band subscribes outside its own `uid`.
+- The permissions assume `MQTT_TOPIC_PREFIX=scare/devices`; changing the prefix means changing every credential.
+- Check a band's credential with `npm run test:mqtt-acl` (in `backend/`), and with `-- --strict` once per-topic permissions are in place.
+
+**Current HiveMQ plan:** permissions are *publish only*, *subscribe only* or *publish and subscribe*, always on **all** topics. Bands need both (telemetry out, `event_ack` and `config` in), so today any band's credential can read every band's vitals, location and events, and can publish as any band. Until the plan changes:
+
+- **Separate credentials anyway** — one per band and one for the backend. A lost or cloned band is revoked on its own, and the backend's credential never ships in firmware.
+- **Long random passwords**, handed to the firmware team out of band — not in group chats.
+- **Verify the broker's TLS certificate** in firmware; `setInsecure()` is for bench testing only.
+- **Before real patient data**, move to a plan (or broker) with per-topic permissions and apply the table above. Publish-only band credentials would stop a leaked credential from *reading* other patients' data, but bands then couldn't receive `event_ack` or `config`, so that isn't a workaround.
 
 ---
 
