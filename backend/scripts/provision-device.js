@@ -80,11 +80,10 @@ Firmware (keep secret — never on the label)
   MQTT password   ${mqttPassword}
 
 HiveMQ Cloud → Access Management → add credential
-  Username  ${uid}
-  Password  ${mqttPassword}
-  Publish   ${["vitals", "status", "location", "events", "motion", "ack"].map((k) => `${prefix}/${uid}/${k}`).join("\n            ")}
-  Subscribe ${prefix}/${uid}/config
-            ${prefix}/${uid}/event_ack
+  Username      ${uid}
+  Password      ${mqttPassword}
+  Permission    Publish and Subscribe
+  Topic filter  ${prefix}/${uid}/#
   Then check it: BAND_UID=${uid} BAND_USERNAME=${uid} BAND_PASSWORD=… npm run test:mqtt-acl -- --strict
 `;
       await writeFile(path.join(OUT_DIR, `${uid}.txt`), sheet, { mode: 0o600 });

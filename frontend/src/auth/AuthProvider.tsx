@@ -83,12 +83,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null
   }, [])
 
+  const register = useCallback<AuthValue['register']>(async (input) => {
+    if (!live) return 'Accounts are only created with real data. Switch to “Real bands” first.'
+    try {
+      const result = await api<{ token: string; user: User }>('POST', '/auth/register', input)
+      setToken(result.token, true)
+      try {
+        localStorage.setItem(LIVE_USER_KEY, JSON.stringify(result.user))
+      } catch {
+        /* storage unavailable */
+      }
+      setUser(result.user)
+      return null
+    } catch (err) {
+      return err instanceof ApiError ? err.message : 'Couldn’t create the account. Try again.'
+    }
+  }, [])
+
   const logout = useCallback(() => {
     clearStored()
     setUser(null)
   }, [])
 
-  const value = useMemo(() => ({ user, login, logout }), [user, login, logout])
+  const value = useMemo(() => ({ user, login, register, logout }), [user, login, register, logout])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

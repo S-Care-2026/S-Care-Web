@@ -151,8 +151,11 @@ export { formatPhone }
 
 export interface PairInput {
   deviceId: string
+  /** Real bands only: the secret code printed with the band's QR label. */
+  claimCode?: string
   existingPatientId?: string
-  newPatient?: { name: string; age: number; sex: Sex; room: string; zone: Zone }
+  /** `zone` is one of the four wings in the demo; real facilities name their own areas. */
+  newPatient?: { name: string; age: number; sex: Sex; room: string; zone: string }
 }
 
 /** In-browser stand-in for the backend: bands publishing vitals, the MQTT subscriber's rule engine and the alert API. */
@@ -662,7 +665,7 @@ export function createSimulator() {
         if (!np.name.trim()) return { error: 'Enter the patient’s name.' }
         if (!np.room.trim()) return { error: 'Enter a room.' }
         patientId = `pat-${now.toString(36)}`
-        patients = [...patients, { id: patientId, name: np.name.trim(), age: np.age, sex: np.sex, room: np.room.trim(), zone: np.zone, deviceId: uid, admittedAt: now, notes: '' }]
+        patients = [...patients, { id: patientId, name: np.name.trim(), age: np.age, sex: np.sex, room: np.room.trim(), zone: np.zone as Zone, deviceId: uid, admittedAt: now, notes: '' }]
       } else {
         return { error: 'Choose a patient for this band.' }
       }

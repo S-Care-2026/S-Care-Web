@@ -1,43 +1,47 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
+import { parsePairingText, type PairingCode } from '../../data/pairing'
 import { sim, useSim } from '../../data/store'
 import type { Sex, Zone } from '../../lib/types'
 import { Icon } from '../Icon'
 import { Modal } from '../ui'
 import { useToast } from '../toast-context'
 
-const ZONES: Zone[] = ['North Wing', 'West Wing', 'East Wing', 'South Wing']
+// The QR decoder is only downloaded when someone opens the camera.
+const QrScanner = lazy(() => import('./QrScanner').then((m) => ({ default: m.QrScanner })))
 
-export function PairDeviceModal({ open, onClose, onPaired }: { open: boolean; onClose: () => void; onPaired: (patientId: string) => void }) {
+const WINGS: Zone[] = ['North Wing', 'West Wing', 'East Wing', 'South Wing']
+const UID_PATTERN = /^[A-Z0-9_-]{3,64}$/
+
+export function PairDeviceModal({
+  open,
+  initial,
+  onClose,
+  onPaired,
+}: {
+  open: boolean
+  /** Filled in from a scanned label link (/pair?d=…&c=…). */
+  initial?: PairingCode
+  onClose: () => void
+  onPaired: (patientId: string) => void
+}) {
   return (
     <Modal open={open} onClose={onClose} width={560} title={<span className="text-[16px] font-extrabold">Pair a band</span>}>
-      {open && <PairFlow onClose={onClose} onPaired={onPaired} />}
+      {open && <PairFlow key={initial?.deviceId ?? 'blank'} initial={initial} onClose={onClose} onPaired={onPaired} />}
     </Modal>
   )
 }
 
-function PairFlow({ onClose, onPaired }: { onClose: () => void; onPaired: (patientId: string) => void }) {
-  if (sim.kind === 'live') return <LivePairingNotice onClose={onClose} />
-  return <DemoPairFlow onClose={onClose} onPaired={onPaired} />
-}
-
-function LivePairingNotice({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="flex flex-col gap-4 p-5 text-[13px] text-t2">
-      <p>Pairing a band from the dashboard isn’t available with real data yet.</p>
-      <p>
-        An administrator registers the band in the <span className="font-mono">devices</span> table and assigns it to a patient in the database. It then
-        appears here as soon as it sends its first reading.
-      </p>
-      <button type="button" className="btn btn-primary self-end" onClick={onClose}>Got it</button>
-    </div>
-  )
-}
-
-function DemoPairFlow({ onClose, onPaired }: { onClose: () => void; onPaired: (patientId: string) => void }) {
+function PairFlow({ initial, onClose, onPaired }: { initial?: PairingCode; onClose: () => void; onPaired: (patientId: string) => void }) {
   const state = useSim()
   const toast = useToast()
+  const live = sim.kind === 'live'
+
   const [step, setStep] = useState<'scan' | 'assign'>('scan')
-  const [code, setCode] = useState('')
+  const [scanning, setScanning] = useState(false)
+  const [uidInput, setUidInput] = useState(initial?.deviceId ?? '')
+  const [claimCode, setClaimCode] = useState(initial?.claimCode ?? '')
+  const [scanNote, setScanNote] = useState<string | null>(initial ? 'Filled in from the band’s QR label.' : null)
+
   const [mode, setMode] = useState<'new' | 'existing'>('new')
   const unassigned = state.patients.filter((p) => !p.deviceId)
   const [existingId, setExistingId] = useState(unassigned[0]?.id ?? '')
@@ -45,30 +49,53 @@ function DemoPairFlow({ onClose, onPaired }: { onClose: () => void; onPaired: (p
   const [age, setAge] = useState(80)
   const [sex, setSex] = useState<Sex>('female')
   const [room, setRoom] = useState('')
-  const [zone, setZone] = useState<Zone>('North Wing')
+  const [zone, setZone] = useState<string>(live ? '' : 'North Wing')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
-  const uid = code.trim().toUpperCase()
+  const uid = uidInput.trim().toUpperCase()
+  const known = state.devices.find((d) => d.id === uid)
+  // A band this facility already owns (unpaired earlier) doesn't need its code again.
+  const needsCode = live && !known
   const scanError = !uid
     ? null
-    : !/^[A-Z0-9_-]{3,64}$/.test(uid)
-      ? 'Band ids use letters, digits, - and _ only.'
-      : state.devices.some((d) => d.id === uid)
-        ? `${uid} is already registered.`
-        : null
+    : !UID_PATTERN.test(uid)
+      ? 'Band IDs use letters, digits, - and _ only.'
+      : known?.patientId
+        ? `${uid} is already paired${state.patients.find((p) => p.id === known.patientId) ? ` with ${state.patients.find((p) => p.id === known.patientId)!.name}` : ''}. Unpair it first.`
+        : !live && known
+          ? `${uid} is already registered.`
+          : null
+  const zoneOptions = [...new Set(state.patients.map((p): string => p.zone).filter((z) => z && z !== '—'))]
+
+  const applyScanned = (text: string) => {
+    setScanning(false)
+    const parsed = parsePairingText(text)
+    if (!parsed) {
+      setScanNote('That QR code isn’t an S-Care band label. Type the band ID and pairing code instead.')
+      return
+    }
+    setUidInput(parsed.deviceId)
+    setClaimCode(parsed.claimCode)
+    setScanNote('Read from the QR label.')
+  }
 
   const submit = async () => {
+    if (submitting) return
+    setSubmitting(true)
     const result = await sim.pair({
       deviceId: uid,
+      claimCode: needsCode ? claimCode : undefined,
       existingPatientId: mode === 'existing' ? existingId : undefined,
       newPatient: mode === 'new' ? { name, age, sex, room, zone } : undefined,
     })
+    setSubmitting(false)
     if ('error' in result) {
       setError(result.error)
       return
     }
     const patient = sim.getState().patients.find((p) => p.id === result.patientId)
-    toast({ tone: 'success', title: `${uid} paired`, body: `Now monitoring ${patient?.name}. Contacts sync to the band on its next check-in.` })
+    toast({ tone: 'success', title: `${uid} paired`, body: `Now monitoring ${patient?.name ?? 'the patient'}. Contacts sync to the band on its next check-in.` })
     onClose()
     onPaired(result.patientId)
   }
@@ -76,46 +103,103 @@ function DemoPairFlow({ onClose, onPaired }: { onClose: () => void; onPaired: (p
   if (step === 'scan') {
     return (
       <div className="flex flex-col gap-5 p-5">
-        <div className="relative mx-auto aspect-square w-full max-w-[260px] overflow-hidden rounded-xl border border-line bg-elev">
-          {['top-3 left-3 border-t-[3px] border-l-[3px]', 'top-3 right-3 border-t-[3px] border-r-[3px]', 'bottom-3 left-3 border-b-[3px] border-l-[3px]', 'right-3 bottom-3 border-r-[3px] border-b-[3px]'].map((c) => (
-            <span key={c} className={`absolute h-8 w-8 rounded-sm border-green ${c}`} />
-          ))}
-          <span className="animate-sc-laser absolute right-6 left-6 h-[2px] bg-green" />
-          <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-t3">
-            <Icon name="scan" size={36} />
-            <span className="px-8 text-center text-[12px]">Camera preview appears here on a device with a camera</span>
-          </span>
+        {live ? (
+          scanning ? (
+            <Suspense fallback={<p className="text-center text-[12px] text-t3">Opening the camera…</p>}>
+              <QrScanner onResult={applyScanned} />
+            </Suspense>
+          ) : (
+            <button type="button" className="btn btn-outline self-center" onClick={() => { setScanNote(null); setScanning(true) }}>
+              <Icon name="scan" size={16} />
+              Scan the QR label with the camera
+            </button>
+          )
+        ) : (
+          <div className="relative mx-auto aspect-square w-full max-w-[260px] overflow-hidden rounded-xl border border-line bg-elev">
+            {['top-3 left-3 border-t-[3px] border-l-[3px]', 'top-3 right-3 border-t-[3px] border-r-[3px]', 'bottom-3 left-3 border-b-[3px] border-l-[3px]', 'right-3 bottom-3 border-r-[3px] border-b-[3px]'].map((c) => (
+              <span key={c} className={`absolute h-8 w-8 rounded-sm border-green ${c}`} />
+            ))}
+            <span className="animate-sc-laser absolute right-6 left-6 h-[2px] bg-green" />
+            <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-t3">
+              <Icon name="scan" size={36} />
+              <span className="px-8 text-center text-[12px]">Camera preview appears here on a device with a camera</span>
+            </span>
+          </div>
+        )}
+
+        <p className="text-center text-[13px] text-t2">
+          {live
+            ? 'Or type the band ID and pairing code printed on the label. Keep the label private: the code is what proves you have the band.'
+            : 'Scan the QR code on the back of the band, or enter the id printed under it.'}
+        </p>
+        {scanNote && <p className="text-center text-[12px] font-semibold text-t2" role="status">{scanNote}</p>}
+
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="field-label" htmlFor="pair-code">Band ID</label>
+            <input
+              id="pair-code"
+              className="input font-mono uppercase"
+              value={uidInput}
+              onChange={(e) => {
+                const parsed = parsePairingText(e.target.value)
+                if (parsed) {
+                  setUidInput(parsed.deviceId)
+                  setClaimCode(parsed.claimCode)
+                  setScanNote('Filled in from the pasted label link.')
+                } else {
+                  setUidInput(e.target.value)
+                }
+              }}
+              placeholder={live ? 'SCB-7K2Q9XHMR4' : 'SC-DEV-201'}
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={Boolean(scanError)}
+              aria-describedby="pair-code-help"
+            />
+            <p id="pair-code-help" className={`mt-1.5 text-[12px] ${scanError ? 'text-red' : 'text-t3'}`} role={scanError ? 'alert' : undefined}>
+              {scanError ?? (live ? (known ? 'This band already belongs to your facility — no pairing code needed.' : '') : 'Demo codes:')}
+              {!scanError && !live && (
+                <>
+                  {' '}
+                  {['SC-DEV-201', 'SC-DEV-202', 'SC-DEV-203'].map((c) => (
+                    <button key={c} type="button" onClick={() => setUidInput(c)} className="mr-2 font-mono font-bold text-green hover:underline">
+                      {c}
+                    </button>
+                  ))}
+                </>
+              )}
+            </p>
+          </div>
+
+          {needsCode && (
+            <div>
+              <label className="field-label" htmlFor="pair-claim">Pairing code</label>
+              <input
+                id="pair-claim"
+                className="input font-mono uppercase"
+                value={claimCode}
+                onChange={(e) => setClaimCode(e.target.value)}
+                placeholder="XXXX-XXXX-XXXX-XXXX"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+          )}
         </div>
-        <p className="text-center text-[13px] text-t2">Scan the QR code on the back of the band, or enter the id printed under it.</p>
-        <div>
-          <label className="field-label" htmlFor="pair-code">Band id</label>
-          <input
-            id="pair-code"
-            className="input font-mono uppercase"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="SC-DEV-201"
-            autoComplete="off"
-            aria-invalid={Boolean(scanError)}
-            aria-describedby="pair-code-help"
-          />
-          <p id="pair-code-help" className={`mt-1.5 text-[12px] ${scanError ? 'text-red' : 'text-t3'}`} role={scanError ? 'alert' : undefined}>
-            {scanError ?? 'Demo codes:'}
-            {!scanError && (
-              <>
-                {' '}
-                {['SC-DEV-201', 'SC-DEV-202', 'SC-DEV-203'].map((c) => (
-                  <button key={c} type="button" onClick={() => setCode(c)} className="mr-2 font-mono font-bold text-green hover:underline">
-                    {c}
-                  </button>
-                ))}
-              </>
-            )}
-          </p>
-        </div>
+
         <div className="flex justify-end gap-2">
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn btn-primary" disabled={!uid || Boolean(scanError)} onClick={() => setStep('assign')}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!uid || Boolean(scanError) || (needsCode && !claimCode.trim())}
+            onClick={() => {
+              setScanning(false)
+              setError(null)
+              setStep('assign')
+            }}
+          >
             Continue
             <Icon name="chevron-right" size={16} />
           </button>
@@ -129,16 +213,16 @@ function DemoPairFlow({ onClose, onPaired }: { onClose: () => void; onPaired: (p
       className="flex flex-col gap-5 p-5"
       onSubmit={(e) => {
         e.preventDefault()
-        submit()
+        void submit()
       }}
     >
       <div className="flex items-center gap-3 rounded-lg border border-green bg-green-surf p-3">
         <span className="flex h-9 w-9 items-center justify-center rounded-md bg-green text-on-green">
-          <Icon name="check" size={18} strokeWidth={3} />
+          <Icon name="watch" size={18} />
         </span>
         <div>
           <b className="font-mono text-[14px]">{uid}</b>
-          <p className="text-[12px] text-t2">S-Care Band · firmware 2.1.3 · ready to assign</p>
+          <p className="text-[12px] text-t2">{live ? (needsCode ? 'Checked when you pair — choose who wears it' : 'Owned by your facility — choose who wears it') : 'S-Care Band · firmware 2.1.3 · ready to assign'}</p>
         </div>
       </div>
 
@@ -178,13 +262,22 @@ function DemoPairFlow({ onClose, onPaired }: { onClose: () => void; onPaired: (p
           </div>
           <div>
             <label className="field-label" htmlFor="pair-room">Room</label>
-            <input id="pair-room" className="input" value={room} onChange={(e) => setRoom(e.target.value)} placeholder="215" required />
+            <input id="pair-room" className="input" value={room} onChange={(e) => setRoom(e.target.value)} placeholder={live ? 'e.g. Bedroom or 215' : '215'} required />
           </div>
           <div>
-            <label className="field-label" htmlFor="pair-zone">Wing</label>
-            <select id="pair-zone" className="input" value={zone} onChange={(e) => setZone(e.target.value as Zone)}>
-              {ZONES.map((z) => <option key={z}>{z}</option>)}
-            </select>
+            <label className="field-label" htmlFor="pair-zone">{live ? 'Area (optional)' : 'Wing'}</label>
+            {live ? (
+              <>
+                <input id="pair-zone" className="input" list="pair-zone-options" value={zone} onChange={(e) => setZone(e.target.value)} placeholder="e.g. Upstairs" />
+                <datalist id="pair-zone-options">
+                  {zoneOptions.map((z) => <option key={z} value={z} />)}
+                </datalist>
+              </>
+            ) : (
+              <select id="pair-zone" className="input" value={zone} onChange={(e) => setZone(e.target.value)}>
+                {WINGS.map((z) => <option key={z}>{z}</option>)}
+              </select>
+            )}
           </div>
         </div>
       )}
@@ -196,7 +289,7 @@ function DemoPairFlow({ onClose, onPaired }: { onClose: () => void; onPaired: (p
           <Icon name="chevron-left" size={16} />
           Back
         </button>
-        <button type="submit" className="btn btn-primary">Pair band</button>
+        <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Pairing…' : 'Pair band'}</button>
       </div>
     </form>
   )

@@ -165,8 +165,10 @@ export function Login() {
           {mode === 'live' ? (
             <div className="rounded-lg border border-line bg-card p-4 text-[12px] text-t2">
               <p className="font-bold">Real data accounts</p>
-              <p className="mt-1.5">Use the account your administrator created. Demo accounts don’t work here.</p>
-              <p className="mt-1.5 text-t3">Server: <span className="font-mono">{API_URL}</span></p>
+              <p className="mt-1.5">
+                Monitoring someone at home? <Link to="/register" className="font-bold">Create an account</Link>, then pair their band. Care-home staff use the account their administrator created. Demo accounts don’t work here.
+              </p>
+              <p className="mt-1.5 text-t3">Server: <span className="font-mono">{API_URL || "not configured (VITE_API_URL missing at build)"}</span></p>
             </div>
           ) : (
           <div className="rounded-lg border border-line bg-card p-4">
@@ -194,7 +196,7 @@ export function Login() {
           </div>
           )}
           <p className="text-center text-[12px] leading-relaxed text-t3">
-            Accounts are provisioned by your facility administrator. No open sign-up.
+            {mode === 'live' ? 'Care-home accounts are provisioned by the facility administrator.' : 'Accounts are provisioned by your facility administrator. No open sign-up.'}
             <br />
             <Link to="/" className="font-bold">Back to home</Link>
           </p>

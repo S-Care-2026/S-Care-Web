@@ -146,3 +146,5 @@ vite.config.ts.timestamp-*
 .antigravity/
 .agy/
 *.agy.log
+# Band secrets from npm run db:provision-device (pairing codes, MQTT passwords)
+backend/provisioned/

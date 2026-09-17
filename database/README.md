@@ -124,23 +124,37 @@ Example `vitals` payload — short keys, in case telemetry ever travels over the
 
 ### Broker permissions
 
-Target setup — needs a broker plan with per-topic permissions:
+HiveMQ Cloud Serverless (free) gives each credential **one** permission — *publish and subscribe* — with **one** topic filter. That is enough to keep bands apart:
 
-| Credential | Publish | Subscribe |
+| Credential | Permission | Topic filter |
 |---|---|---|
-| One per band (`{uid}` = its `device_uid`) | `scare/devices/{uid}/vitals`, `…/status`, `…/location`, `…/events`, `…/motion`, `…/ack` | `scare/devices/{uid}/config`, `scare/devices/{uid}/event_ack` |
-| Backend | `scare/devices/+/event_ack`; `scare/devices/+/config` (retained) once config push is built | `scare/devices/+/vitals`, `+/status`, `+/location`, `+/events`, `+/motion`, `+/ack` — these six are exactly what the subscriber uses; `scare/devices/#` also works but is broader |
+| One per band (`{uid}` = its `device_uid`) | Publish and Subscribe | `scare/devices/{uid}/#` |
+| Backend | Publish and Subscribe | `scare/devices/#` |
 
-- The backend never publishes on band telemetry topics, and no band subscribes outside its own `uid`.
-- The permissions assume `MQTT_TOPIC_PREFIX=scare/devices`; changing the prefix means changing every credential.
-- Check a band's credential with `npm run test:mqtt-acl` (in `backend/`), and with `-- --strict` once per-topic permissions are in place.
+What it enforces, and what it doesn't:
 
-**Current HiveMQ plan:** permissions are *publish only*, *subscribe only* or *publish and subscribe*, always on **all** topics. Bands need both (telemetry out, `event_ack` and `config` in), so today any band's credential can read every band's vitals, location and events, and can publish as any band. Until the plan changes:
+- **Enforced:** a band can't read or publish anything under another band's `scare/devices/{other uid}/`, and can't subscribe to `scare/devices/#`. This is what protects other patients' data.
+- **Not enforced:** direction *within* a band's own topics. A band could publish to its own `event_ack` or `config`, or subscribe to its own `vitals`. That only affects its own data, and the backend never trusts those topics as input (it doesn't subscribe to `event_ack` or `config`).
+- With a paid plan that allows several permissions per credential, the tighter split is: band publishes `…/{uid}/vitals|status|location|events|motion|ack` and subscribes `…/{uid}/config|event_ack`; backend publishes `scare/devices/+/event_ack|config` and subscribes the six telemetry topics.
+- The filters assume `MQTT_TOPIC_PREFIX=scare/devices`; changing the prefix means changing every credential.
 
-- **Separate credentials anyway** — one per band and one for the backend. A lost or cloned band is revoked on its own, and the backend's credential never ships in firmware.
+`npm run db:provision-device` writes these settings into each band's sheet (`backend/provisioned/<band id>.txt`). Check a band's credential with `npm run test:mqtt-acl -- --strict` (in `backend/`) — it tests exactly the cross-band isolation above and must pass before a band goes to a real patient. Also:
+
+- **One credential per band, one for the backend.** A lost or cloned band is revoked on its own, and the backend's credential never ships in firmware.
 - **Long random passwords**, handed to the firmware team out of band — not in group chats.
 - **Verify the broker's TLS certificate** in firmware; `setInsecure()` is for bench testing only.
-- **Before real patient data**, move to a plan (or broker) with per-topic permissions and apply the table above. Publish-only band credentials would stop a leaked credential from *reading* other patients' data, but bands then couldn't receive `event_ack` or `config`, so that isn't a workaround.
+
+### Band identity and pairing
+
+Band ids are part of every topic, so they can't be the secret. Each band gets two things at provisioning (`npm run db:provision-device`):
+
+| | Where it lives | Purpose |
+|---|---|---|
+| **Band id** `SCB-` + 10 random characters | Label, topics, dashboard | Not guessable from other bands' ids, but not secret |
+| **Pairing code** `XXXX-XXXX-XXXX-XXXX` (~80 bits) | QR label only; `devices.claim_code_hash` stores its sha256 | Proves you hold the band. Required to claim an unclaimed band |
+| **Broker password** | Firmware and the HiveMQ credential; `devices.mqtt_password_hash` keeps a bcrypt hash | Lets the band connect |
+
+The QR holds `https://<dashboard>/pair?d=<band id>&c=<pairing code>`: a phone camera opens the dashboard's pairing dialog filled in, or the dashboard scans it itself. Claiming is limited to 10 attempts per account per 10 minutes, and a wrong code, an unknown band and a band owned by another facility all get the same answer. After unpairing, the band stays with its facility and can be paired again without the code; its retained config is cleared so it carries no numbers from the previous wearer.
 
 ---
 
@@ -390,5 +404,5 @@ Pub/sub is fire-and-forget. That's fine here: a reconnecting client re-fetches o
 1. **Band wake interval.** It drives `heartbeat_interval_s`, offline detection, broker connection count and battery life. The sizing above assumes 10 s samples uploaded once a minute.
 2. **Does the band have GPS?** The standard TTGO T-Call's SIM800L has no GNSS receiver, so location may be cell- or Wi-Fi-based unless a GPS module is added. `location.source` records which.
 3. **Body temperature.** Neither the MPU6050 nor the MAX30102 is a body-temperature sensor (both report their own chip temperature). The field is optional; decide whether the UI should show it.
-4. **Public sign-up.** The mobile roadmap lists `POST /api/auth/register`; the web design has invite-only accounts. The schema supports either — `users.password_hash` is nullable for invited users.
+4. **Sign-up.** *Decided:* anyone can create an account with `POST /api/auth/register`; it creates their own home (`facilities.kind = 'private_home'`) with them as admin, and they pair bands to it. Care-home staff are still added by their facility (`npm run db:create-user` for now). Still open: inviting family members or caregivers into an existing home from the dashboard, and email verification / password reset (needs an email provider).
 5. **Broker limits.** Free broker tiers are often capped at around 100 concurrent connections, and 100 bands plus the backend's subscriber would exceed that. Confirm before choosing.

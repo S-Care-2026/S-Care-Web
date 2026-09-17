@@ -117,7 +117,6 @@ export function createLiveSource(): DataSource {
     reset: ignore,
     setScenario: ignore,
     setDevice: ignore,
-    unpair: ignore,
 
     acknowledge: (alertId) => mutate(() => api('POST', `/alerts/${alertId}/acknowledge`)).then(ignore),
     resolve: (alertId, _by, resolution, notes) => mutate(() => api('POST', `/alerts/${alertId}/resolve`, { resolution, notes })).then(ignore),
@@ -136,6 +135,15 @@ export function createLiveSource(): DataSource {
     moveContact: (id, dir) => mutate(() => api('POST', `/contacts/${id}/move`, { dir })).then(ignore),
     updateContact: (id, patch) => mutate(() => api('PATCH', `/contacts/${id}`, patch)).then(ignore),
 
-    pair: () => ({ error: 'Pairing a band from the dashboard isn’t available with real data yet. Ask an admin to assign it in the database.' }),
+    pair: (input) =>
+      mutate(() =>
+        api<{ patientId: string }>('POST', '/devices/pair', {
+          deviceUid: input.deviceId,
+          claimCode: input.claimCode,
+          patientId: input.existingPatientId,
+          newPatient: input.newPatient,
+        }),
+      ).catch((err: unknown) => ({ error: err instanceof ApiError ? err.message : 'Could not pair the band.' })),
+    unpair: (deviceId) => mutate(() => api('POST', `/devices/${encodeURIComponent(deviceId)}/unpair`)).then(ignore),
   }
 }

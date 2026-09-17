@@ -5,6 +5,8 @@ export interface AuthValue {
   user: User | null
   /** Resolves to an error message, or null when signed in. */
   login: (email: string, password: string, remember: boolean) => Promise<string | null>
+  /** Real data only: creates the account and its home, then signs in. Resolves to an error message, or null. */
+  register: (input: { fullName: string; email: string; password: string; homeName: string }) => Promise<string | null>
   logout: () => void
 }
 

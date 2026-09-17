@@ -8,6 +8,7 @@ import { SimulateAlertModal } from '../components/app/SimulateAlertModal'
 import { Icon, type IconName } from '../components/Icon'
 import { useToast } from '../components/toast-context'
 import { AlertTypeIcon, Avatar, Brand, LivePill } from '../components/ui'
+import { parsePairingText, type PairingCode } from '../data/pairing'
 import { onActionError, sim, sortAlerts, useNow, useSim } from '../data/store'
 import { ALERT_TYPE_LABEL, isActive, timeAgo } from '../lib/format'
 import { setTheme, useTheme } from '../lib/theme'
@@ -35,17 +36,25 @@ export function AppLayout() {
 
   const [alertId, setAlertId] = useState<string | null>(null)
   const [simulate, setSimulate] = useState<{ open: boolean; patientId?: string }>({ open: false })
-  const [pairOpen, setPairOpen] = useState(false)
+  const [pair, setPair] = useState<{ open: boolean; initial?: PairingCode }>({ open: false })
   const [navOpen, setNavOpen] = useState(false)
 
   const actions = useMemo<AppActions>(
     () => ({
       openAlert: (id) => setAlertId(id),
       simulateAlert: (patientId) => setSimulate({ open: true, patientId }),
-      pairDevice: () => setPairOpen(true),
+      pairDevice: () => setPair({ open: true }),
     }),
     [],
   )
+
+  // A band's QR label links to /pair?d=…&c=…: open the pairing dialog with it filled in.
+  useEffect(() => {
+    if (location.pathname !== '/pair') return
+    const initial = parsePairingText(location.search) ?? undefined
+    navigate('/dashboard', { replace: true })
+    startTransition(() => setPair({ open: true, initial }))
+  }, [location.pathname, location.search, navigate])
 
   const title = titleFor(location.pathname)
   useEffect(() => {
@@ -197,7 +206,7 @@ export function AppLayout() {
         onClose={() => setSimulate({ open: false })}
         onCreated={(id) => setAlertId(id)}
       />
-      <PairDeviceModal open={pairOpen} onClose={() => setPairOpen(false)} onPaired={(pid) => navigate(`/patients/${pid}`)} />
+      <PairDeviceModal open={pair.open} initial={pair.initial} onClose={() => setPair({ open: false })} onPaired={(pid) => navigate(`/patients/${pid}`)} />
     </AppActionsContext.Provider>
   )
 }

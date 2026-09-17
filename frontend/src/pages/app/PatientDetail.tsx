@@ -268,6 +268,10 @@ function BandCard({ patientId }: { patientId: string }) {
   const state = useSim()
   const now = useNow(5000)
   const { pairDevice } = useAppActions()
+  const { user } = useAuth()
+  const toast = useToast()
+  const [confirmUnpair, setConfirmUnpair] = useState(false)
+  const canManage = user?.role === 'admin' || user?.role === 'caregiver'
   const patient = state.patients.find((p) => p.id === patientId)!
   const device = state.devices.find((d) => d.id === patient.deviceId)
   const t = thresholdsFor(state, patientId)
@@ -324,6 +328,33 @@ function BandCard({ patientId }: { patientId: string }) {
           {synced ? `Up to date (v${device.configVersion})` : device.online ? 'Syncing…' : `Stale (band has v${device.configAcked})`}
         </dd>
       </dl>
+      {canManage &&
+        (confirmUnpair ? (
+          <div className="flex flex-col gap-2 rounded-md border border-amber bg-amber-surf p-3">
+            <p className="text-[12px] text-t1">
+              Stop monitoring {patient.name} with {device.id}? Readings stop showing here and the band’s emergency numbers are cleared.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={async () => {
+                  if (await perform(() => sim.unpair(device.id))) {
+                    toast({ tone: 'info', title: `${device.id} unpaired`, body: 'Pair it again from the dashboard when it’s ready for someone else.' })
+                  }
+                  setConfirmUnpair(false)
+                }}
+              >
+                Unpair band
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmUnpair(false)}>Keep it</button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" className="btn btn-ghost btn-sm self-start" onClick={() => setConfirmUnpair(true)}>
+            Unpair band
+          </button>
+        ))}
     </section>
   )
 }

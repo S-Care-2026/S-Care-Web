@@ -173,6 +173,8 @@ npm run db:create-user -- --email you@example.org --name "Your Name" --role admi
 npm run dev                   # Starts on http://localhost:3001
 ```
 
+New bands are registered with `npm run db:provision-device -- --count 5` (set `APP_URL` to the dashboard's address first). Each gets a random id, a pairing code and a broker password; the QR label and a sheet with the HiveMQ credential settings are written to `backend/provisioned/`, which is git-ignored — hand them over and delete them.
+
 The backend subscribes to the MQTT broker and stores every reading: alerts in PostgreSQL, samples in InfluxDB, the latest reading per band in Redis. `db:create-user` takes the password from `NEW_USER_PASSWORD`, or generates one and prints it once.
 
 Check the whole path with a simulated band: `BAND_PASSWORD=… BACKEND_URL=http://localhost:3001 API_EMAIL=… API_PASSWORD=… npm run test:band`.
@@ -185,7 +187,11 @@ Everything except `/api/health` and `/api/auth/login` needs `Authorization: Bear
 |---|---|---|
 | `GET` | `/api/health` | Health check: MQTT connection and which stores are configured |
 | `POST` | `/api/auth/login` | `{ email, password }` → `{ token, user }` (token valid 12 h) |
+| `POST` | `/api/auth/register` | `{ fullName, email, password, homeName? }` → creates the account and its home, returns `{ token, user }` |
 | `GET` | `/api/auth/me` | The signed-in user |
+| `POST` | `/api/auth/password` | `{ currentPassword, newPassword }` → `{ token }`; other sessions are signed out |
+| `POST` | `/api/devices/pair` | `{ deviceUid, claimCode, patientId \| newPatient }` — claim and assign a band |
+| `POST` | `/api/devices/:uid/unpair` | End the band's assignment (it stays with the facility) |
 | `GET` | `/api/facility/snapshot` | Patients, bands, latest vitals, 30-min sample buffers, alerts, contacts, thresholds — what the dashboard polls |
 | `PUT` | `/api/facility/thresholds` | Facility default thresholds *(admin)* |
 | `GET` | `/api/patients/:id/history?vital=hr\|spo2&range=1h\|6h\|24h\|7d` | Chart buckets from InfluxDB |
@@ -208,7 +214,7 @@ npm run dev                   # Starts on http://localhost:5173
 The dashboard has two data sources, chosen on the sign-in page or in **Settings → Data source** (switching signs you out):
 
 - **Demo data** — an in-browser simulator: live vitals, the alert rule engine, the fall countdown and QR pairing all work without the backend. Sign in with `caregiver@scare.demo` / `demo1234` or `admin@scare.demo` / `admin1234`; see [`frontend/README.md`](frontend/README.md) for things to try.
-- **Real bands** — data from the backend at `VITE_API_URL` (default `http://localhost:3001`; see `frontend/.env.example`). Sign in with an account made by `npm run db:create-user`.
+- **Real bands** — data from the backend at `VITE_API_URL` (see `frontend/.env.example`; required for deployed builds). Create an account on the sign-in page, then pair a band by scanning its QR label; care-home staff use accounts made by `npm run db:create-user`.
 
 ### 4. Run with Docker (Backend)
 

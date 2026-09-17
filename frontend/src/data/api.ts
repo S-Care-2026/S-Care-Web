@@ -1,6 +1,11 @@
 /** Client for the S-Care backend (backend/src/routes/api.js). */
 
-export const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:3001').replace(/\/+$/, '')
+// Vite inlines VITE_API_URL when the app is built, so changing it on the host needs a rebuild.
+// Only the dev server falls back to a local backend; a production build without it says so.
+const configuredUrl = import.meta.env.VITE_API_URL?.trim()
+export const API_URL = (configuredUrl || (import.meta.env.DEV ? 'http://localhost:3001' : '')).replace(/\/+$/, '')
+const MISSING_API_URL =
+  'This dashboard was built without VITE_API_URL, so it doesn’t know where the S-Care server is. Set it on the frontend service and rebuild.'
 
 const TOKEN_KEY = 'scare.token'
 
@@ -30,6 +35,17 @@ export function setToken(token: string | null, remember = true) {
   }
 }
 
+/** Swaps in a new token (after a password change) wherever the current one is kept. */
+export function replaceToken(token: string) {
+  let remembered = true
+  try {
+    remembered = localStorage.getItem(TOKEN_KEY) !== null
+  } catch {
+    /* storage unavailable */
+  }
+  setToken(token, remembered)
+}
+
 const unauthorizedListeners = new Set<() => void>()
 
 /** Called when the server rejects the stored token (expired, or the account was disabled). */
@@ -41,6 +57,7 @@ export function onUnauthorized(listener: () => void) {
 }
 
 export async function api<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
+  if (!API_URL) throw new ApiError(0, MISSING_API_URL)
   const token = getToken()
   let res: Response
   try {

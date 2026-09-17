@@ -4,7 +4,7 @@ import { useAuth } from '../../auth/context'
 import { Icon } from '../../components/Icon'
 import { useToast } from '../../components/toast-context'
 import { LivePill } from '../../components/ui'
-import { API_URL } from '../../data/api'
+import { api, API_URL, ApiError, replaceToken } from '../../data/api'
 import { switchDataMode } from '../../data/mode'
 import { perform, sim, useSim } from '../../data/store'
 import { BUILT_IN_THRESHOLDS, effectiveThresholds, validateThresholds } from '../../lib/thresholds'
@@ -93,7 +93,74 @@ export function Settings() {
           </button>
         </section>
       </div>
+
+      {live && <ChangePasswordCard />}
     </div>
+  )
+}
+
+const PASSWORD_MIN = 10
+
+function ChangePasswordCard() {
+  const toast = useToast()
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  return (
+    <section className="card overflow-hidden">
+      <header className="border-b border-line bg-elev px-5 py-3.5">
+        <h2 className="m-0 text-[15px] font-bold">Change password</h2>
+        <p className="text-[12px] text-t3">You stay signed in here. Other browsers and devices are signed out.</p>
+      </header>
+      <form
+        className="grid gap-4 p-5 md:grid-cols-3"
+        noValidate
+        onSubmit={async (e) => {
+          e.preventDefault()
+          if (saving) return
+          if (!current) return setError('Enter your current password.')
+          if (next.length < PASSWORD_MIN) return setError(`Use a new password of at least ${PASSWORD_MIN} characters.`)
+          if (next !== confirm) return setError('The new passwords don’t match.')
+          setSaving(true)
+          try {
+            const { token } = await api<{ token: string }>('POST', '/auth/password', { currentPassword: current, newPassword: next })
+            replaceToken(token)
+            setCurrent('')
+            setNext('')
+            setConfirm('')
+            setError(null)
+            toast({ tone: 'success', title: 'Password changed', body: 'Other sessions have been signed out.' })
+          } catch (err) {
+            setError(err instanceof ApiError ? err.message : 'Couldn’t change the password. Try again.')
+          } finally {
+            setSaving(false)
+          }
+        }}
+      >
+        <div>
+          <label className="field-label" htmlFor="pw-current">Current password</label>
+          <input id="pw-current" type="password" className="input h-10" autoComplete="current-password" value={current} onChange={(e) => { setCurrent(e.target.value); setError(null) }} />
+        </div>
+        <div>
+          <label className="field-label" htmlFor="pw-new">New password</label>
+          <input id="pw-new" type="password" className="input h-10" autoComplete="new-password" value={next} onChange={(e) => { setNext(e.target.value); setError(null) }} aria-describedby="pw-new-help" />
+          <p id="pw-new-help" className="mt-1 text-[11px] text-t3">At least {PASSWORD_MIN} characters.</p>
+        </div>
+        <div>
+          <label className="field-label" htmlFor="pw-confirm">Confirm new password</label>
+          <input id="pw-confirm" type="password" className="input h-10" autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(null) }} />
+        </div>
+        {error && <p className="rounded-md border border-red bg-red-surf px-3 py-2 text-[13px] text-t1 md:col-span-3" role="alert">{error}</p>}
+        <div className="flex justify-end md:col-span-3">
+          <button type="submit" className="btn btn-primary" disabled={saving || !current || !next || !confirm}>
+            {saving ? 'Changing…' : 'Change password'}
+          </button>
+        </div>
+      </form>
+    </section>
   )
 }
 

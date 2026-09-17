@@ -12,7 +12,7 @@ export function getDataMode(): DataMode {
 }
 
 /** Signs out and reloads on the sign-in page: demo and real accounts are different, and the data source is picked at startup. */
-export function switchDataMode(mode: DataMode) {
+export function switchDataMode(mode: DataMode, to = '/login') {
   try {
     localStorage.setItem(KEY, mode)
     for (const storage of [localStorage, sessionStorage]) {
@@ -23,5 +23,5 @@ export function switchDataMode(mode: DataMode) {
   } catch {
     /* storage unavailable: the reload keeps the current mode */
   }
-  window.location.assign('/login')
+  window.location.assign(to)
 }

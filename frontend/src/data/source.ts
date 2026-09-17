@@ -32,5 +32,5 @@ export interface DataSource {
   updateContact(id: string, patch: Partial<Pick<EmergencyContact, 'notifyOnSos' | 'notifyOnFall'>>): MaybePromise<void>
 
   pair(input: PairInput): MaybePromise<{ error: string } | { patientId: string }>
-  unpair(deviceId: string): void
+  unpair(deviceId: string): MaybePromise<void>
 }
