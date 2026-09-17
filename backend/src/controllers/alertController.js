@@ -1,102 +1,135 @@
-function generateDemoAlerts(count = 20) {
-  const types = ["FALL", "SOS", "HEART_RATE", "SPO2"];
-  const severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
-  const statuses = ["PENDING", "ACKNOWLEDGED", "RESOLVED"];
-  const names = [
-    "Nguyễn Văn An",
-    "Trần Thị Bình",
-    "Lê Văn Cường",
-    "Phạm Thị Dung",
-    "Hoàng Văn Em",
-  ];
+import { query } from "../db/postgres.js";
+import { canSeePatient } from "../auth/auth.js";
+import { createAlert, dedupes, findActive, getAlert } from "../services/alerts.js";
+import { audit } from "../services/audit.js";
+import { locationLabel } from "../services/context.js";
+import { getLiveDevice } from "../services/latest.js";
+import { forgetAlertState } from "../services/rules.js";
+import { invalidateSnapshot } from "../services/snapshot.js";
+import { HttpError, optionalText, requireUuid } from "./validate.js";
 
-  const alerts = [];
-  const now = Date.now();
+const db = { query };
+const ALERT_TYPES = new Set(["fall", "sos", "tachycardia", "bradycardia", "hypoxemia", "low_battery", "offline"]);
+const RESOLUTIONS = new Set(["assisted", "false_alarm", "no_action_needed"]);
 
-  for (let i = 0; i < count; i++) {
-    const type = types[Math.floor(Math.random() * types.length)];
-    const createdAt = new Date(
-      now - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)
-    );
+const DEFAULT_DETAILS = {
+  fall: "Fall raised manually. Waiting for the 15 s cancel window.",
+  sos: "SOS raised manually from the dashboard.",
+  low_battery: "Low battery raised manually from the dashboard.",
+  offline: "Band marked offline manually from the dashboard.",
+};
 
-    alerts.push({
-      id: i + 1,
-      device_id: `SCARE-${String(Math.floor(Math.random() * 5) + 1).padStart(3, "0")}`,
-      patient_name: names[Math.floor(Math.random() * names.length)],
-      alert_type: type,
-      severity: severities[Math.floor(Math.random() * severities.length)],
-      status: statuses[Math.floor(Math.random() * statuses.length)],
-      message: `${type === "FALL" ? "Phát hiện ngã" : type === "SOS" ? "Nút SOS được nhấn" : type === "HEART_RATE" ? "Nhịp tim bất thường" : "SpO2 thấp"} — ${names[Math.floor(Math.random() * names.length)]}`,
-      heart_rate: type === "HEART_RATE" ? Math.floor(Math.random() * 60) + 40 : Math.floor(Math.random() * 40) + 60,
-      spo2: type === "SPO2" ? Math.floor(Math.random() * 10) + 85 : Math.floor(Math.random() * 5) + 95,
-      latitude: 10.762622 + (Math.random() - 0.5) * 0.05,
-      longitude: 106.660172 + (Math.random() - 0.5) * 0.05,
-      created_at: createdAt.toISOString(),
-      resolved_at:
-        statuses[Math.floor(Math.random() * statuses.length)] === "RESOLVED"
-          ? new Date(createdAt.getTime() + Math.random() * 3600000).toISOString()
-          : null,
-    });
-  }
-
-  return alerts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+async function alertInFacility(req) {
+  const alertId = requireUuid(req.params.alertId, "Alert");
+  const alert = await getAlert(req.user.facilityId, alertId);
+  if (!alert || (alert.patientId && !canSeePatient(req.user, alert.patientId))) throw new HttpError(404, "Alert not found");
+  return alert;
 }
 
-// GET /api/alerts — List all alerts
-export const getAlerts = (req, res) => {
-  try {
-    const alerts = generateDemoAlerts(30);
-    res.json({
-      success: true,
-      count: alerts.length,
-      data: alerts,
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+// POST /api/alerts — raise an alert by hand (the dashboard's "Simulate alert" on real data)
+export async function createManualAlert(req, res) {
+  const { patientId, type } = req.body ?? {};
+  requireUuid(patientId, "Patient");
+  if (!ALERT_TYPES.has(type)) throw new HttpError(400, `Unknown alert type "${type}".`);
+  if (!canSeePatient(req.user, patientId)) throw new HttpError(404, "Patient not found");
+  const notes = optionalText(req.body.notes);
+
+  const { rows } = await query(
+    `SELECT p.id, r.name AS room, z.name AS zone, d.id AS device_id, d.device_uid
+     FROM patients p
+     LEFT JOIN rooms r ON r.id = p.room_id
+     LEFT JOIN zones z ON z.id = r.zone_id
+     LEFT JOIN device_assignments a ON a.patient_id = p.id AND a.unassigned_at IS NULL
+     LEFT JOIN devices d ON d.id = a.device_id
+     WHERE p.id = $1 AND p.facility_id = $2 AND p.discharged_at IS NULL`,
+    [patientId, req.user.facilityId]
+  );
+  const patient = rows[0];
+  if (!patient) throw new HttpError(404, "Patient not found");
+  if ((type === "low_battery" || type === "offline") && !patient.device_id) {
+    throw new HttpError(400, "This patient has no band paired.");
   }
-};
 
-// GET /api/alerts/stats — Alert statistics
-export const getAlertStats = (req, res) => {
-  try {
-    const alerts = generateDemoAlerts(100);
-    const stats = {
-      total: alerts.length,
-      by_type: {},
-      by_severity: {},
-      by_status: {},
-      recent_24h: 0,
-    };
-
-    const now = Date.now();
-    alerts.forEach((a) => {
-      stats.by_type[a.alert_type] = (stats.by_type[a.alert_type] || 0) + 1;
-      stats.by_severity[a.severity] = (stats.by_severity[a.severity] || 0) + 1;
-      stats.by_status[a.status] = (stats.by_status[a.status] || 0) + 1;
-      if (now - new Date(a.created_at).getTime() < 86400000) stats.recent_24h++;
-    });
-
-    res.json({ success: true, data: stats });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  if (dedupes(type)) {
+    const existing = await findActive(db, { type, patientId, deviceId: patient.device_id });
+    if (existing) {
+      return res.json({ success: true, data: { alert: await getAlert(req.user.facilityId, existing.id), duplicate: true } });
+    }
   }
-};
 
-// POST /api/alerts — Create new alert (simulated)
-export const createAlert = (req, res) => {
-  try {
-    const { device_id, alert_type, message } = req.body;
-    const newAlert = {
-      id: Date.now(),
-      device_id: device_id || "SCARE-001",
-      alert_type: alert_type || "FALL",
-      severity: "HIGH",
-      status: "PENDING",
-      message: message || "Phát hiện ngã",
-      created_at: new Date().toISOString(),
-    };
-    res.status(201).json({ success: true, data: newAlert });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
+  const vitals = patient.device_uid ? getLiveDevice(patient.device_uid)?.vitals : null;
+  const fresh = vitals && Date.now() - Date.parse(vitals.ts) < 5 * 60_000;
+  const severity = type === "fall" || type === "sos" ? "critical" : type === "low_battery" ? "info" : "warning";
+
+  const result = await createAlert(db, {
+    facilityId: req.user.facilityId,
+    patientId,
+    deviceId: patient.device_id,
+    type,
+    severity,
+    status: type === "fall" ? "pending" : "open",
+    source: "manual",
+    occurredAt: Date.now(),
+    locationLabel: locationLabel(patient.room, patient.zone),
+    heartRate: fresh ? vitals.heart_rate : null,
+    spo2: fresh ? vitals.spo2 : null,
+    details: { description: notes ?? DEFAULT_DETAILS[type] ?? "Raised manually from the dashboard.", raised_by: req.user.name },
+  });
+
+  await audit(db, { facilityId: req.user.facilityId, userId: req.user.id, action: "alert.create", entityType: "alert", entityId: result.id, changes: { type, patientId }, ip: req.ip });
+  invalidateSnapshot(req.user.facilityId);
+  const alert = await getAlert(req.user.facilityId, result.id);
+  res.status(result.created ? 201 : 200).json({ success: true, data: { alert, duplicate: !result.created } });
+}
+
+// POST /api/alerts/:alertId/acknowledge
+export async function acknowledgeAlert(req, res) {
+  const alert = await alertInFacility(req);
+  const { rowCount } = await query(
+    "UPDATE alerts SET status = 'acknowledged', acknowledged_at = now(), acknowledged_by = $2 WHERE id = $1 AND status = 'open'",
+    [alert.id, req.user.id]
+  );
+  if (!rowCount) throw new HttpError(409, "Only open alerts can be acknowledged.");
+  await audit(db, { facilityId: req.user.facilityId, userId: req.user.id, action: "alert.acknowledge", entityType: "alert", entityId: alert.id, ip: req.ip });
+  invalidateSnapshot(req.user.facilityId);
+  res.json({ success: true, data: await getAlert(req.user.facilityId, alert.id) });
+}
+
+// POST /api/alerts/:alertId/resolve  { resolution, notes }
+export async function resolveAlert(req, res) {
+  const alert = await alertInFacility(req);
+  const resolution = req.body?.resolution;
+  if (!RESOLUTIONS.has(resolution)) throw new HttpError(400, "Choose an outcome: assisted, false_alarm or no_action_needed.");
+  const notes = optionalText(req.body.notes);
+  if (resolution === "false_alarm" && !notes) throw new HttpError(400, "Add a note for false alarms — say what triggered it.");
+
+  const { rows } = await query(
+    `UPDATE alerts
+     SET status = 'resolved', resolved_at = now(), resolved_by = $2, resolution = $3, resolution_notes = $4
+     WHERE id = $1 AND status IN ('open', 'acknowledged')
+     RETURNING patient_id, device_id`,
+    [alert.id, req.user.id, resolution, notes]
+  );
+  if (!rows[0]) throw new HttpError(409, "Only open or acknowledged alerts can be resolved.");
+  if (rows[0].patient_id) forgetAlertState(rows[0].patient_id);
+  if (rows[0].device_id) forgetAlertState(rows[0].device_id);
+
+  await audit(db, { facilityId: req.user.facilityId, userId: req.user.id, action: "alert.resolve", entityType: "alert", entityId: alert.id, changes: { resolution, notes }, ip: req.ip });
+  invalidateSnapshot(req.user.facilityId);
+  res.json({ success: true, data: await getAlert(req.user.facilityId, alert.id) });
+}
+
+// POST /api/alerts/:alertId/cancel — a fall still in its cancel window
+export async function cancelAlert(req, res) {
+  const alert = await alertInFacility(req);
+  const { rowCount } = await query(
+    `UPDATE alerts
+     SET status = 'cancelled', details = details || jsonb_build_object('cancelled_at', now()::text, 'cancelled_by', $2::text)
+     WHERE id = $1 AND status = 'pending'`,
+    [alert.id, req.user.name]
+  );
+  if (!rowCount) throw new HttpError(409, "Only a fall that is still confirming can be cancelled.");
+  await audit(db, { facilityId: req.user.facilityId, userId: req.user.id, action: "alert.cancel", entityType: "alert", entityId: alert.id, ip: req.ip });
+  invalidateSnapshot(req.user.facilityId);
+  res.json({ success: true, data: await getAlert(req.user.facilityId, alert.id) });
+}

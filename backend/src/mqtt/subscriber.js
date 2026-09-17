@@ -19,7 +19,8 @@ const log = {
 
 let client = null;
 const state = {
-  status: "disabled",
+  // "starting" until startSubscriber runs (after the startup warm-up), so health checks don't read "disabled".
+  status: process.env.MQTT_BROKER_URL ? "starting" : "disabled",
   broker: null,
   client_id: null,
   connected_since: null,
@@ -28,6 +29,10 @@ const state = {
   messages_received: 0,
   messages_rejected: 0,
 };
+
+// Messages from one band are handled one at a time, in arrival order, so a fall_confirmed
+// can't be processed before its fall_detected. Different bands run concurrently.
+const queues = new Map(); // uid -> Promise
 
 export function getMqttStatus() {
   return { ...state };
@@ -44,31 +49,19 @@ function subscriptions() {
   );
 }
 
-function sendReply(uid, replyTopic, body) {
-  if (!client || !replyTopic || !body) return;
-  const topic = `${topicPrefix()}/${uid}/${replyTopic}`;
+// Publishes to scare/devices/{uid}/{kind}. Returns false when not connected (the message is
+// still queued by mqtt.js and sent after reconnecting).
+export function publishToBand(uid, kind, body, options = { qos: 1 }) {
+  if (!client) return false;
+  const topic = `${topicPrefix()}/${uid}/${kind}`;
   client
-    .publishAsync(topic, JSON.stringify(body), { qos: 1 })
+    .publishAsync(topic, JSON.stringify(body), options)
     .catch((err) => log.error(`failed to publish ${topic}: ${err.message}`));
+  return client.connected;
 }
 
-function onMessage(topic, payload) {
-  const receivedAt = Date.now();
-  state.messages_received++;
-  state.last_message_at = new Date(receivedAt).toISOString();
-
-  let uid = null;
-  let handler = null;
-
+async function processMessage(topic, uid, handler, payload, receivedAt) {
   try {
-    const prefix = `${topicPrefix()}/`;
-    if (!topic.startsWith(prefix)) throw new PayloadError("unexpected topic");
-
-    const [topicUid, kind, ...rest] = topic.slice(prefix.length).split("/");
-    if (!handlers[kind] || rest.length > 0) throw new PayloadError("unknown topic");
-    if (!DEVICE_UID_PATTERN.test(topicUid)) throw new PayloadError(`invalid device uid "${topicUid}"`);
-    uid = topicUid;
-    handler = handlers[kind];
     if (payload.length > MAX_PAYLOAD_BYTES) throw new PayloadError(`payload of ${payload.length} bytes is too large`);
 
     let body;
@@ -81,17 +74,40 @@ function onMessage(topic, payload) {
       throw new PayloadError("payload must be a JSON object");
     }
 
-    const reply = handler.handle(uid, body, receivedAt, log);
-    sendReply(uid, handler.replyTopic, reply);
+    const reply = await handler.handle(uid, body, receivedAt, log);
+    if (handler.replyTopic && reply) publishToBand(uid, handler.replyTopic, reply);
   } catch (err) {
     state.messages_rejected++;
     if (err instanceof PayloadError) {
       log.warn(`rejected ${topic}: ${err.message}`);
-      if (uid) sendReply(uid, handler.replyTopic, err.reply);
+      if (handler.replyTopic && err.reply) publishToBand(uid, handler.replyTopic, err.reply);
     } else {
+      // Storage failure: no reply, so a band waiting for event_ack retries.
       log.error(`failed to handle ${topic}: ${err.stack || err.message}`);
     }
   }
+}
+
+function onMessage(topic, payload) {
+  const receivedAt = Date.now();
+  state.messages_received++;
+  state.last_message_at = new Date(receivedAt).toISOString();
+
+  const prefix = `${topicPrefix()}/`;
+  const [uid, kind, ...rest] = topic.startsWith(prefix) ? topic.slice(prefix.length).split("/") : [];
+  const handler = handlers[kind];
+  if (!handler || rest.length > 0 || !DEVICE_UID_PATTERN.test(uid ?? "")) {
+    state.messages_rejected++;
+    log.warn(`rejected ${topic}: unknown topic or invalid device uid`);
+    return;
+  }
+
+  const previous = queues.get(uid) ?? Promise.resolve();
+  const current = previous.then(() => processMessage(topic, uid, handler, payload, receivedAt));
+  queues.set(uid, current);
+  current.finally(() => {
+    if (queues.get(uid) === current) queues.delete(uid);
+  });
 }
 
 export function startSubscriber() {
@@ -157,7 +173,7 @@ export function startSubscriber() {
     if (packet.reasonCode === SESSION_TAKEN_OVER) {
       // A newer instance (e.g. during a Render deploy) connected with our client id — let it win.
       log.warn("session taken over by another instance with the same client id, stopping");
-      stopSubscriber();
+      void stopSubscriber();
     }
   });
 
@@ -166,7 +182,7 @@ export function startSubscriber() {
     log.error(err.message);
     if (AUTH_FAILURES.has(err.code)) {
       log.error("check MQTT_USERNAME / MQTT_PASSWORD — not retrying");
-      stopSubscriber();
+      void stopSubscriber();
     }
   });
 }
@@ -177,5 +193,6 @@ export async function stopSubscriber() {
   client = null;
   state.status = "stopped";
   state.connected_since = null;
+  await Promise.allSettled([...queues.values()]);
   await closing.endAsync();
 }
