@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import apiRouter from "./routes/api.js";
+import { startSubscriber, stopSubscriber } from "./mqtt/subscriber.js";
 
 dotenv.config();
 
@@ -34,6 +35,9 @@ app.get("/", (req, res) => {
       "GET  /api/devices/:id",
       "GET  /api/devices/:id/health",
       "POST /api/devices/scan",
+      "GET  /api/live/devices",
+      "GET  /api/live/devices/:uid",
+      "GET  /api/live/events",
     ],
   });
 });
@@ -42,7 +46,19 @@ app.use((req, res) => {
   res.status(404).json({ success: false, error: "Route not found" });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 S-Care Backend running on http://localhost:${PORT}`);
   console.log(`📋 API docs: http://localhost:${PORT}/api/health`);
+  startSubscriber();
 });
+
+// Render sends SIGTERM on redeploy; close the MQTT session cleanly first.
+async function shutdown(signal) {
+  console.log(`${signal} received, shutting down`);
+  await stopSubscriber().catch((err) => console.error(err));
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 10_000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
