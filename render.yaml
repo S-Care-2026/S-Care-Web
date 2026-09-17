@@ -26,9 +26,7 @@ services:
     name: s-care-backend
     runtime: docker
     region: singapore
-    # Paid on purpose: free instances sleep after 15 min without inbound HTTP
-    # traffic, which would drop the MQTT subscription.
-    plan: 0.5c-512mb
+    plan: free # 0.5c-512mb
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /api/health
