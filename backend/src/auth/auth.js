@@ -38,7 +38,7 @@ export async function loadUser(userId) {
   if (hit && hit.expires > Date.now()) return hit.value;
 
   const { rows } = await query(
-    `SELECT u.id, u.email, u.full_name, u.is_active, u.password_changed_at,
+    `SELECT u.id, u.email, u.full_name, u.is_active, u.is_platform_admin, u.password_changed_at,
             m.facility_id, m.role, f.name AS facility_name, f.kind AS facility_kind
      FROM users u
      LEFT JOIN LATERAL (
@@ -60,6 +60,7 @@ export async function loadUser(userId) {
       email: row.email,
       name: row.full_name,
       role: row.role,
+      isPlatformAdmin: row.is_platform_admin,
       facilityId: row.facility_id,
       facilityName: row.facility_name,
       facilityKind: row.facility_kind,
@@ -152,6 +153,7 @@ export function publicUser(user) {
     role: user.role,
     zone: user.facilityName,
     facilityId: user.facilityId,
+    isPlatformAdmin: user.isPlatformAdmin === true,
   };
 }
 
@@ -187,6 +189,14 @@ export function requireRole(...roles) {
     }
     next();
   };
+}
+
+// A facility admin (including any self-registered user) is not a site owner.
+export function requirePlatformAdmin(req, res, next) {
+  if (req.user?.isPlatformAdmin !== true) {
+    return res.status(403).json({ success: false, error: "Only platform administrators can view website activity" });
+  }
+  next();
 }
 
 // Family members only see the patients they were given access to.

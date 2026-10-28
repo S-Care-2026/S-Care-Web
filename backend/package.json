@@ -13,6 +13,7 @@
     "db:seed": "node scripts/seed.js",
     "test:mqtt-acl": "node scripts/test-mqtt-acl.js",
     "test:band": "node scripts/test-band.js",
+    "test:activity": "node --test test/web-activity.test.js",
     "db:create-user": "node scripts/create-user.js",
     "db:provision-device": "node scripts/provision-device.js"
   },

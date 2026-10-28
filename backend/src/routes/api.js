@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { loginRateLimit, rateLimit, registerRateLimit, requireAuth, requireRole } from "../auth/auth.js";
+import { loginRateLimit, rateLimit, registerRateLimit, requireAuth, requirePlatformAdmin, requireRole } from "../auth/auth.js";
+import { getActivitySummary, postHeartbeat } from "../controllers/activityController.js";
 import { hasPostgres } from "../db/postgres.js";
 import { influxStatus } from "../db/influx.js";
 import { redisStatus } from "../db/redis.js";
@@ -43,6 +44,14 @@ router.post("/auth/register", registerRateLimit, postRegister);
 
 // Everything below needs a signed-in user.
 router.use(requireAuth);
+
+router.post("/activity/heartbeat", rateLimit({
+  limit: 60,
+  windowMs: 60_000,
+  message: "Too many activity updates. Try again in a minute.",
+  keyOf: (req) => req.user.id,
+}), postHeartbeat);
+router.get("/admin/activity/summary", requirePlatformAdmin, getActivitySummary);
 
 router.get("/auth/me", getMe);
 router.post("/auth/password", loginRateLimit, postChangePassword);
