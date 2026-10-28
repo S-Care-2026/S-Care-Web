@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router'
 import { AuthContext, useAuth, type AuthValue } from './context'
 import { api, ApiError, getToken, onUnauthorized, setToken } from '../data/api'
 import { getDataMode } from '../data/mode'
+import { startActivityTracking } from '../data/activity'
 import { DEMO_USERS } from '../data/seed'
 import type { User } from '../lib/types'
 
@@ -41,6 +42,11 @@ function clearStored() {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(readSession)
+  const userId = user?.id
+
+  useEffect(() => {
+    if (live && userId) return startActivityTracking()
+  }, [userId])
 
   // Real data: the server can end the session (token expired, account disabled).
   useEffect(
@@ -51,6 +57,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }),
     [],
   )
+
+  // Refresh restored sessions and permissions granted in the database.
+  useEffect(() => {
+    if (!live || !userId) return
+    let cancelled = false
+    let inflight = false
+    const refreshUser = async () => {
+      if (inflight || document.visibilityState !== 'visible') return
+      const token = getToken()
+      if (!token) return
+      inflight = true
+      try {
+        const current = await api<User>('GET', '/auth/me')
+        if (cancelled || getToken() !== token) return
+        setUser((previous) => previous?.id === current.id ? current : previous)
+        try {
+          const storage = localStorage.getItem('scare.token') ? localStorage : sessionStorage
+          storage.setItem(LIVE_USER_KEY, JSON.stringify(current))
+        } catch { /* the current session still has the refreshed user */ }
+      } catch { /* unauthorized responses are handled by onUnauthorized */ }
+      finally { inflight = false }
+    }
+    void refreshUser()
+    const timer = window.setInterval(() => void refreshUser(), 60_000)
+    document.addEventListener('visibilitychange', refreshUser)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refreshUser)
+    }
+  }, [userId])
 
   const login = useCallback<AuthValue['login']>(async (email, password, remember) => {
     const storage = remember ? localStorage : sessionStorage

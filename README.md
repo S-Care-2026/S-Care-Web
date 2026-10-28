@@ -202,6 +202,12 @@ Everything except `/api/health` and `/api/auth/login` needs `Authorization: Bear
 | `POST` | `/api/alerts` | Raise an alert by hand (`{ patientId, type, notes }`) |
 | `POST` | `/api/alerts/:id/acknowledge` · `/resolve` · `/cancel` | Handle an alert |
 | `GET` | `/api/live/devices`, `/api/live/devices/:uid`, `/api/live/events` | Raw latest MQTT data, for debugging |
+| `POST` | `/api/activity/heartbeat` | Record visible-tab activity for the signed-in account (`{ activeMs }`) |
+| `GET` | `/api/admin/activity/summary` | Account counts, online users and cumulative activity time *(platform admin only)* |
+
+See [Website activity API](backend/ACTIVITY_API.md) for setup, fetch examples,
+metric definitions and tests. This tracks real signed-in accounts, not browser-only
+demo accounts or anonymous visitors.
 
 ### 3. Run the Frontend
 

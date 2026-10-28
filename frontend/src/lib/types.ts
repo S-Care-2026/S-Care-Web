@@ -131,4 +131,5 @@ export interface User {
   role: Role
   zone: string
   facilityId?: string
+  isPlatformAdmin?: boolean
 }

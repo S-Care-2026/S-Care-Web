@@ -10,6 +10,7 @@ import { MapPage } from './pages/app/MapPage'
 import { PatientDetail } from './pages/app/PatientDetail'
 import { Patients } from './pages/app/Patients'
 import { Settings } from './pages/app/Settings'
+import { AdminActivity } from './pages/app/AdminActivity'
 import { About } from './pages/public/About'
 import { Home } from './pages/public/Home'
 import { Login } from './pages/public/Login'
@@ -41,6 +42,7 @@ export default function App() {
               <Route path="alerts" element={<Alerts />} />
               <Route path="map" element={<MapPage />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="admin/activity" element={<AdminActivity />} />
               <Route path="pair" element={<Dashboard />} />
             </Route>
 

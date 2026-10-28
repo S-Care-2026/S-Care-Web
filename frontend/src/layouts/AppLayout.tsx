@@ -13,11 +13,12 @@ import { onActionError, sim, sortAlerts, useNow, useSim } from '../data/store'
 import { ALERT_TYPE_LABEL, isActive, timeAgo } from '../lib/format'
 import { setTheme, useTheme } from '../lib/theme'
 
-const NAV: { to: string; label: string; icon: IconName }[] = [
+const NAV: { to: string; label: string; icon: IconName; platformOnly?: boolean }[] = [
   { to: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
   { to: '/patients', label: 'Patients', icon: 'patients' },
   { to: '/alerts', label: 'Alerts', icon: 'bell' },
   { to: '/map', label: 'Map', icon: 'map' },
+  { to: '/admin/activity', label: 'Website activity', icon: 'chart', platformOnly: true },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ]
 
@@ -94,7 +95,7 @@ export function AppLayout() {
         </Link>
       </div>
       <nav className="flex flex-1 flex-col gap-0.5 p-3" aria-label="App">
-        {NAV.map((n) => (
+        {NAV.filter((n) => !n.platformOnly || (live && user?.isPlatformAdmin === true)).map((n) => (
           <NavLink
             key={n.to}
             to={n.to}
